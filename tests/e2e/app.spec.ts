@@ -1,5 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -30,21 +30,46 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     page.on('console', (message) => console.log(`Renderer console ${message.type()}: ${message.text()}`));
     page.on('crash', () => console.log(`Renderer crashed. Electron stderr:\n${stderr.join('')}`));
     await page.waitForLoadState('domcontentloaded');
+    expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu() === null)).toBe(true);
     await expect(page.getByRole('heading', { name: '把经历变成可表达的能力' })).toBeVisible();
     await expect(page.getByTestId('dashboard-empty')).toBeVisible();
     await page.getByRole('button', { name: '加载演示数据' }).click();
     await expect(page.getByTestId('stat-projects')).toHaveText('1');
 
+    const mockFileSelection = async (filePath: string) => {
+      await app.evaluate(({ dialog }, selectedPath) => {
+        dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selectedPath] });
+      }, filePath);
+    };
+
+    const resumePath = path.join(dataDirectory, 'resume.txt');
+    await writeFile(resumePath, '姓名：E2E用户\n当前岗位：运维工程师\n工作年限：2年\n学历：本科\n目标岗位：AI技术支持\n技能：Kubernetes:熟悉，Docker:掌握', 'utf8');
+    await mockFileSelection(resumePath);
+    await page.getByTestId('nav-profile').click();
+    await page.getByTestId('profile-import-file').click();
+    await expect(page.getByTestId('profile-role')).toHaveValue('运维工程师');
+    await mkdir(path.resolve('artifacts'), { recursive: true });
+    await page.screenshot({ path: path.resolve('artifacts', 'profile-import.png'), fullPage: true });
+    await page.getByRole('button', { name: '保存职业档案' }).click();
+
     await page.getByTestId('nav-knowledge').click();
-    await page.getByTestId('knowledge-title').fill('E2E 专用知识卡');
-    await page.getByTestId('knowledge-content').fill('Kubernetes 故障排查需要先查看 Events 和容器日志。');
+    const knowledgePath = path.join(dataDirectory, 'knowledge.md');
+    await writeFile(knowledgePath, '# E2E 专用知识卡\n这是通过文件导入的 Kubernetes 故障排查内容。', 'utf8');
+    await mockFileSelection(knowledgePath);
+    await page.getByTestId('knowledge-import-file').click();
+    await expect(page.getByTestId('knowledge-title')).toHaveValue('E2E 专用知识卡');
+    await expect(page.getByTestId('knowledge-content')).toHaveValue(/Kubernetes/);
+    await page.screenshot({ path: path.resolve('artifacts', 'knowledge-import.png'), fullPage: true });
     await page.getByTestId('knowledge-save').click();
     await expect(page.getByRole('button', { name: /E2E 专用知识卡/ })).toBeVisible();
 
     await page.getByTestId('nav-jobs').click();
-    await page.getByTestId('job-add').click();
-    await page.getByTestId('job-title').fill('E2E 云原生技术支持');
-    await page.getByTestId('job-raw').fill('要求熟悉 Kubernetes、Docker、Linux、大模型 API，并具备日志排查和客户沟通能力。');
+    const jobPath = path.join(dataDirectory, 'job.txt');
+    await writeFile(jobPath, '岗位名称：E2E 云原生技术支持\n公司名称：示例科技\n要求熟悉 Kubernetes、Docker、Linux、大模型 API，并具备日志排查和客户沟通能力。', 'utf8');
+    await mockFileSelection(jobPath);
+    await page.getByTestId('job-import-file').click();
+    await expect(page.getByTestId('job-title')).toHaveValue('E2E 云原生技术支持');
+    await page.screenshot({ path: path.resolve('artifacts', 'job-import.png'), fullPage: true });
     await page.getByTestId('job-analyze').click();
     await expect(page.getByTestId('job-detail')).toContainText('Kubernetes');
 
@@ -66,13 +91,21 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await page.getByTestId('training-finalize').click();
 
     await page.getByTestId('nav-knowledge').click();
-    await expect(page.locator('.collection-list .collection-item')).toHaveCount(3);
+    await page.getByTestId('knowledge-search').fill('请介绍一下');
+    await expect(page.locator('.collection-list .collection-item')).toHaveCount(1);
 
     await app.close();
     appClosed = true;
 
     const restarted = await electron.launch({
-      args: ['.', '--disable-gpu', '--disable-gpu-compositing', '--disable-gpu-sandbox', '--in-process-gpu', '--use-gl=swiftshader'],
+      args: [
+        '.',
+        '--disable-gpu',
+        '--disable-gpu-compositing',
+        '--disable-gpu-sandbox',
+        '--in-process-gpu',
+        '--use-gl=swiftshader'
+      ],
       cwd: process.cwd(),
       env
     });

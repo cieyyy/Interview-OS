@@ -19,7 +19,8 @@ const IPC = {
   exportMarkdown: 'export:markdown',
   saveProvider: 'provider:save',
   testProvider: 'provider:test',
-  getMeta: 'app:get-meta'
+  getMeta: 'app:get-meta',
+  importDocument: 'document:import'
 } as const;
 
 const api: InterviewOSApi = {
@@ -37,7 +38,8 @@ const api: InterviewOSApi = {
   exportMarkdown: () => ipcRenderer.invoke(IPC.exportMarkdown),
   saveProvider: (input) => ipcRenderer.invoke(IPC.saveProvider, input),
   testProvider: () => ipcRenderer.invoke(IPC.testProvider),
-  getMeta: () => ipcRenderer.invoke(IPC.getMeta)
+  getMeta: () => ipcRenderer.invoke(IPC.getMeta),
+  importDocument: (target) => ipcRenderer.invoke(IPC.importDocument, target)
 };
 
 contextBridge.exposeInMainWorld('interviewOS', api);

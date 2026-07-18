@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import type { JobDescription, JobInput } from '../../shared/domain';
+import type { DocumentImportResult, JobDescription, JobInput } from '../../shared/domain';
+import DocumentImportButton from '../components/DocumentImportButton.vue';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
 
@@ -10,6 +11,15 @@ const selectedId = ref<string>();
 const form = reactive<JobInput>({ title: '', company: '', rawText: '' });
 const selected = computed(() => store.workspace?.jobs.find((item) => item.id === selectedId.value) ?? store.workspace?.jobs[0]);
 function select(job: JobDescription): void { selectedId.value = job.id; showForm.value = false; }
+function applyImport(result: DocumentImportResult): void {
+  if (!result.job) return;
+  showForm.value = true;
+  Object.assign(form, {
+    title: result.job.title ?? '',
+    company: result.job.company ?? '',
+    rawText: result.job.rawText ?? result.extractedText
+  });
+}
 async function submit(): Promise<void> {
   const saved = await analyzeJob(form);
   if (saved) { selectedId.value = saved.id; showForm.value = false; Object.assign(form, { title: '', company: '', rawText: '' }); }
@@ -20,10 +30,12 @@ const matchLabel = (value: string) => ({ evidenced: '已有证据', related: '�
 <template>
   <section>
     <PageHeader eyebrow="TARGET" title="JD 中心" description="不是只给匹配分，而是说明每项要求对应的真实证据和缺口。">
+      <DocumentImportButton target="job" label="上传识别 JD" test-id="job-import-file" @imported="applyImport" />
       <button class="button primary" type="button" data-testid="job-add" @click="showForm = true">导入 JD</button>
     </PageHeader>
 
     <form v-if="showForm" class="panel form-card job-import" data-testid="job-form" @submit.prevent="submit">
+      <div class="import-summary"><span>支持 PNG/JPG、PDF、DOCX、TXT、Markdown</span><small>文档在本地提取；图片将通过已配置的 AI Provider 识别</small></div>
       <div class="form-grid two"><label>岗位名称<input v-model="form.title" class="input" required data-testid="job-title" /></label><label>公司<input v-model="form.company" class="input" /></label></div>
       <label>JD 原文<textarea v-model="form.rawText" class="input jd-textarea" required data-testid="job-raw" placeholder="粘贴岗位职责和任职要求……"></textarea></label>
       <div class="form-actions"><button class="button ghost" type="button" @click="showForm = false">取消</button><span></span><button class="button primary" type="submit" data-testid="job-analyze">离线分析并保存</button></div>

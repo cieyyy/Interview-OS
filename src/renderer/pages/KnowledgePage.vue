@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import type { KnowledgeInput, KnowledgeItem, KnowledgeStatus, KnowledgeType } from '../../shared/domain';
+import type { DocumentImportResult, KnowledgeInput, KnowledgeItem, KnowledgeStatus, KnowledgeType } from '../../shared/domain';
+import DocumentImportButton from '../components/DocumentImportButton.vue';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
 
@@ -37,6 +38,22 @@ function clear(): void {
   tagsText.value = '';
 }
 
+function applyImport(result: DocumentImportResult): void {
+  const imported = result.knowledge;
+  if (!imported) return;
+  clear();
+  Object.assign(form, {
+    type: imported.type ?? 'technical',
+    title: imported.title ?? '',
+    contentMarkdown: imported.contentMarkdown ?? result.extractedText,
+    status: imported.status ?? 'draft',
+    source: imported.source ?? '',
+    tags: imported.tags ?? [],
+    relatedIds: []
+  });
+  tagsText.value = imported.tags?.join(', ') ?? '';
+}
+
 async function submit(): Promise<void> {
   const saved = await saveKnowledge({ ...form, id: selectedId.value, tags: tagsText.value.split(/[,，]/).map((item) => item.trim()).filter(Boolean) });
   if (saved) select(saved);
@@ -54,6 +71,7 @@ async function remove(): Promise<void> {
 <template>
   <section>
     <PageHeader eyebrow="KNOWLEDGE" title="面试知识库" description="把定义、真实场景、故障案例和表达版本连接起来。">
+      <DocumentImportButton target="knowledge" label="上传识别" test-id="knowledge-import-file" @imported="applyImport" />
       <button class="button secondary" type="button" @click="clear">新建卡片</button>
     </PageHeader>
     <div class="workspace-layout">
@@ -76,6 +94,7 @@ async function remove(): Promise<void> {
 
       <form class="editor-panel" data-testid="knowledge-form" @submit.prevent="submit">
         <div class="editor-topline"><span>{{ selectedId ? '编辑知识' : '新建知识' }}</span><span class="save-state">本地自动保护</span></div>
+        <div class="import-summary compact"><span>可从图片、PDF、Word 或文本生成知识草稿</span><small>识别结果不会自动保存，请先检查内容</small></div>
         <div class="form-grid two">
           <label>类型<select v-model="form.type" class="input" data-testid="knowledge-type"><option v-for="item in types" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
           <label>状态<select v-model="form.status" class="input"><option v-for="item in statuses" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>

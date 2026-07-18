@@ -1,9 +1,10 @@
-import { app, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import type { ErrorCode, Result } from '../../shared/domain';
 import { IPC } from '../../shared/ipc';
 import { ValidationError } from '../../shared/validation';
 import { ProviderHttpError } from '../connectors/ai-provider';
 import type { ProviderService } from '../services/provider-service';
+import type { DocumentImportService } from '../services/document-import-service';
 import type { WorkspaceService } from '../services/workspace-service';
 import type { AtomicWorkspaceRepository } from '../storage/workspace-repository';
 
@@ -31,7 +32,8 @@ async function safe<T>(operation: () => T | Promise<T>): Promise<Result<T>> {
 export function registerIpc(
   workspace: WorkspaceService,
   repository: AtomicWorkspaceRepository,
-  provider: ProviderService
+  provider: ProviderService,
+  documentImport: DocumentImportService
 ): void {
   ipcMain.handle(IPC.getState, () => safe(() => workspace.getState()));
   ipcMain.handle(IPC.resetDemo, () => safe(() => workspace.resetDemo()));
@@ -47,6 +49,10 @@ export function registerIpc(
   ipcMain.handle(IPC.exportMarkdown, () => safe(() => repository.exportMarkdown()));
   ipcMain.handle(IPC.saveProvider, (_event, input) => safe(() => provider.save(input)));
   ipcMain.handle(IPC.testProvider, () => safe(() => provider.testConnection()));
+  ipcMain.handle(IPC.importDocument, (event, target) => safe(() => {
+    const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+    return documentImport.selectAndImport(parent, String(target) as 'job' | 'profile' | 'knowledge');
+  }));
   ipcMain.handle(IPC.getMeta, () => safe(() => ({
     version: app.getVersion(),
     dataDirectory: repository.rootDirectory,

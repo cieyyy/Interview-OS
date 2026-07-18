@@ -246,6 +246,20 @@ export interface ConnectionResult {
   latencyMs?: number;
 }
 
+export type DocumentImportTarget = 'job' | 'profile' | 'knowledge';
+export type DocumentRecognitionMode = 'local' | 'ai-vision';
+
+export interface DocumentImportResult {
+  target: DocumentImportTarget;
+  fileName: string;
+  mode: DocumentRecognitionMode;
+  extractedText: string;
+  warnings: string[];
+  job?: Partial<JobInput>;
+  profile?: Partial<ProfileInput>;
+  knowledge?: Partial<KnowledgeInput>;
+}
+
 export interface AppMeta {
   version: string;
   dataDirectory: string;

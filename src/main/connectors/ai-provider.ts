@@ -4,6 +4,10 @@ export interface CompletionRequest {
   system: string;
   prompt: string;
   conversationId?: string;
+  image?: {
+    mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
+    base64: string;
+  };
 }
 
 export interface CompletionResponse {

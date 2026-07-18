@@ -1,8 +1,9 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, Menu, shell } from 'electron';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { registerIpc } from './ipc/register-ipc';
 import { ProviderService } from './services/provider-service';
+import { DocumentImportService } from './services/document-import-service';
 import { WorkspaceService } from './services/workspace-service';
 import { ElectronSecretStore } from './storage/secret-store';
 import { AtomicWorkspaceRepository } from './storage/workspace-repository';
@@ -26,6 +27,7 @@ function resolveDataDirectory(): string {
 }
 
 async function createWindow(): Promise<void> {
+  Menu.setApplicationMenu(null);
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -42,6 +44,8 @@ async function createWindow(): Promise<void> {
       webSecurity: true
     }
   });
+  mainWindow.removeMenu();
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
@@ -73,7 +77,8 @@ app.whenReady().then(async () => {
   await repository.initialize();
   const workspace = new WorkspaceService(repository);
   const provider = new ProviderService(repository, new ElectronSecretStore(repository.rootDirectory));
-  registerIpc(workspace, repository, provider);
+  const documentImport = new DocumentImportService(provider);
+  registerIpc(workspace, repository, provider, documentImport);
   await createWindow();
 
   app.on('activate', () => {

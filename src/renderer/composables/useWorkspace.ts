@@ -1,6 +1,7 @@
 import { computed, reactive } from 'vue';
 import type {
   AppMeta,
+  DocumentImportTarget,
   JobInput,
   KnowledgeInput,
   ProfileInput,
@@ -140,6 +141,15 @@ export function useWorkspace() {
     },
     async testProvider() {
       return run(() => unwrap(window.interviewOS.testProvider()));
+    },
+    async importDocument(target: DocumentImportTarget) {
+      const value = await run(() => unwrap(window.interviewOS.importDocument(target)));
+      if (value) {
+        const notice = value.mode === 'ai-vision' ? '图片识别完成，请核对后保存' : '文件内容已提取，请核对后保存';
+        store.notice = notice;
+        window.setTimeout(() => { if (store.notice === notice) store.notice = ''; }, 3000);
+      }
+      return value;
     },
     clearMessages() {
       store.error = '';

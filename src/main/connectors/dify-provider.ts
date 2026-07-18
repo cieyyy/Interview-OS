@@ -15,6 +15,7 @@ export class DifyProvider implements AIProvider {
   }
 
   async complete(request: CompletionRequest, apiKey: string): Promise<CompletionResponse> {
+    if (request.image) throw new Error('当前图片识别仅支持 OpenAI 兼容 Provider');
     const response = await fetchWithTimeout(`${this.config.baseUrl}/chat-messages`, {
       method: 'POST',
       headers: {

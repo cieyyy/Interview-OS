@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, watchEffect } from 'vue';
-import type { ProfileInput, ProjectInput, SkillLevel } from '../../shared/domain';
+import type { DocumentImportResult, ProfileInput, ProjectInput, SkillLevel } from '../../shared/domain';
+import DocumentImportButton from '../components/DocumentImportButton.vue';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
 
@@ -11,6 +12,18 @@ const skillsText = ref('');
 const profile = reactive<ProfileInput>({ nickname: '', currentRole: '', yearsExperience: 0, education: '', targetRoles: [], skills: [] });
 const project = reactive<ProjectInput>({ name: '', role: '', background: '', responsibilities: '', results: '', techStack: [] });
 const techText = ref('');
+
+function applyProfileImport(result: DocumentImportResult): void {
+  const imported = result.profile;
+  if (!imported) return;
+  tab.value = 'profile';
+  if (imported.nickname) profile.nickname = imported.nickname;
+  if (imported.currentRole) profile.currentRole = imported.currentRole;
+  if (typeof imported.yearsExperience === 'number') profile.yearsExperience = imported.yearsExperience;
+  if (imported.education) profile.education = imported.education;
+  if (imported.targetRoles?.length) targetRolesText.value = imported.targetRoles.join(', ');
+  if (imported.skills?.length) skillsText.value = imported.skills.map((item) => `${item.name}:${item.level}`).join(', ');
+}
 
 watchEffect(() => {
   const current = store.workspace?.profile;
@@ -44,10 +57,13 @@ async function submitProject(): Promise<void> {
 
 <template>
   <section>
-    <PageHeader eyebrow="EVIDENCE" title="职业档案" description="只记录真实经历，让每一次回答都有证据可回溯。" />
+    <PageHeader eyebrow="EVIDENCE" title="职业档案" description="只记录真实经历，让每一次回答都有证据可回溯。">
+      <DocumentImportButton target="profile" label="上传简历 / 图片" test-id="profile-import-file" @imported="applyProfileImport" />
+    </PageHeader>
     <div class="segmented"><button :class="{ active: tab === 'profile' }" @click="tab = 'profile'">基础档案</button><button :class="{ active: tab === 'projects' }" @click="tab = 'projects'">项目经历</button></div>
 
     <div v-if="tab === 'profile'" class="panel form-card">
+      <div class="import-summary"><span>上传简历后自动识别基础档案</span><small>请核对姓名、年限、学历、目标岗位与技能后再保存</small></div>
       <form data-testid="profile-form" @submit.prevent="submitProfile">
         <div class="form-grid two">
           <label>昵称<input v-model="profile.nickname" class="input" placeholder="可使用昵称" /></label>

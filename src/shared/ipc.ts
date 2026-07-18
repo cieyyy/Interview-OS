@@ -2,6 +2,8 @@ import type {
   AppMeta,
   BackupInfo,
   ConnectionResult,
+  DocumentImportResult,
+  DocumentImportTarget,
   ExportInfo,
   JobDescription,
   JobInput,
@@ -36,7 +38,8 @@ export const IPC = {
   exportMarkdown: 'export:markdown',
   saveProvider: 'provider:save',
   testProvider: 'provider:test',
-  getMeta: 'app:get-meta'
+  getMeta: 'app:get-meta',
+  importDocument: 'document:import'
 } as const;
 
 export interface InterviewOSApi {
@@ -55,4 +58,5 @@ export interface InterviewOSApi {
   saveProvider(input: ProviderInput): Promise<Result<ProviderConfig>>;
   testProvider(): Promise<Result<ConnectionResult>>;
   getMeta(): Promise<Result<AppMeta>>;
+  importDocument(target: DocumentImportTarget): Promise<Result<DocumentImportResult | null>>;
 }

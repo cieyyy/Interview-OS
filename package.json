@@ -1,6 +1,6 @@
 {
   "name": "interview-os",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "author": "Interview OS Team",
   "description": "Local-first AI-assisted interview knowledge base for Windows",
@@ -19,7 +19,10 @@
     "test:packaged": "playwright test tests/e2e/packaged.spec.ts",
     "package:win": "npm run build && electron-builder --win"
   },
-  "dependencies": {},
+  "dependencies": {
+    "mammoth": "^1.12.0",
+    "pdf-parse": "^2.4.5"
+  },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@types/node": "^22.0.0",

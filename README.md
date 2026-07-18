@@ -1,6 +1,6 @@
 # Interview OS
 
-> 当前版本：0.1.0
+> 当前版本：0.2.0
 
 Interview OS 是一款本地优先、AI 增强的 Windows 面试知识库桌面应用。
 
@@ -26,8 +26,8 @@ npm run package:win
 
 ## 当前可用版本
 
-- 安装版：`release/Interview-OS-0.1.0-x64-setup.exe`
-- 便携版：`release/Interview-OS-0.1.0-x64-portable.exe`
+- 安装版：`release/Interview-OS-0.2.0-x64-setup.exe`
+- 便携版：`release/Interview-OS-0.2.0-x64-portable.exe`
 - 本机安全启动脚本：`scripts/start-interview-os.ps1`
 
 启动脚本会把数据固定在本项目的 `data/interview-os` 目录，即 F 盘工作区内。软件不依赖 Docker、WSL、Redis、PostgreSQL 或 BIOS 虚拟化。
@@ -41,6 +41,7 @@ npm run package:win
 - [测试计划](./docs/testing/test-plan.md)
 - [测试报告](./docs/testing/test-report-2026-07-19.md)
 - [使用指南](./docs/user-guide.md)
+- [版本发布说明](./docs/releases/README.md)
 
 ## 数据安全
 
