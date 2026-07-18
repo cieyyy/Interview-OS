@@ -1,0 +1,29 @@
+node_modules/
+dist/
+dist-electron/
+release/
+coverage/
+test-results/
+playwright-report/
+.runtime/
+.cache/
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+artifacts/
+
+# Local workspace data and credentials
+data/
+workspace/
+secure/
+*.key
+*.token
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
