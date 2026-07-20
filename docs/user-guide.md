@@ -12,7 +12,7 @@ powershell -ExecutionPolicy Bypass -File F:\codex_ob\scripts\start-interview-os.
 
 该脚本只完成两件事：
 
-1. 启动 `F:\codex_ob\release\Interview-OS-0.3.0-x64-portable.exe`；
+1. 启动 `F:\codex_ob\release\Interview-OS-0.4.0-x64-portable.exe`；
 2. 把数据目录固定为 `F:\codex_ob\data\interview-os`。
 
 软件不依赖 Docker、WSL、Hyper-V、BIOS 虚拟化、Redis 或 PostgreSQL。
@@ -21,8 +21,8 @@ powershell -ExecutionPolicy Bypass -File F:\codex_ob\scripts\start-interview-os.
 
 | 文件 | 用途 | 是否安装 |
 |---|---|---|
-| `Interview-OS-0.3.0-x64-portable.exe` | 当前电脑调试和日常使用 | 否 |
-| `Interview-OS-0.3.0-x64-setup.exe` | 后续分发给普通 Windows 用户 | 是 |
+| `Interview-OS-0.4.0-x64-portable.exe` | 当前电脑调试和日常使用 | 否 |
+| `Interview-OS-0.4.0-x64-setup.exe` | 后续分发给普通 Windows 用户 | 是 |
 
 当前版本尚未购买代码签名证书。Windows 首次运行可能显示 SmartScreen 提示，应先核对发布文件的 SHA-256，再决定是否运行。
 
@@ -52,6 +52,17 @@ Sub2API 等 OpenAI 兼容中转服务可以使用。程序会优先调用 `chat/
 6. 查看六个维度评分，修改后将最终回答沉淀到知识库；
 7. 在“训练报告”点击历史记录，查看每道题当时如何回答以及对应建议；
 8. 在“设置”创建本地备份或导出 Markdown。
+
+### 压力面试闭环
+
+1. 在训练入口选择压力面试、目标 JD、对应项目和 2-8 轮训练上限；
+2. 系统一次只展示一个问题，并根据当前回答生成下一轮动态追问；
+3. 每轮查看证据缺口、逻辑问题、面试官质疑点和基于已有事实生成的 STAR 建议回答；
+4. 需要修改简历时，点击“同步到项目经历”，建议会写入该项目的面试校准记录；
+5. 达到轮次上限后查看核心优势、三个高风险漏洞、五个练习问题、简历建议和面试前检查清单；
+6. 在训练报告中回看每轮原回答、评分、诊断、动态追问和最终总结。
+
+系统不会为用户编造经历或数据。项目资料中缺失的信息会保留为“【需要本人补充】”，需要本人核实后再写入正式简历。
 
 ## 5. AI 联网配置
 

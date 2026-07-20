@@ -38,7 +38,7 @@ function sessionAverage(session: TrainingSession): number | string {
       <div class="session-table">
         <button v-for="session in sessions" :key="session.id" class="session-row" :class="{ selected: selectedId === session.id }" type="button" :data-testid="`training-history-${session.id}`" @click="selectSession(session)">
           <span class="status-badge" :class="session.status">{{ session.status === 'completed' ? '完成' : '进行中' }}</span>
-          <div><strong>{{ session.title }}</strong><small>{{ new Date(session.updatedAt).toLocaleString('zh-CN') }} · {{ session.language === 'en-US' ? 'English' : '中文' }}</small></div>
+          <div><strong>{{ session.title }}</strong><small>{{ new Date(session.updatedAt).toLocaleString('zh-CN') }} · {{ session.language === 'en-US' ? 'English' : '中文' }} · {{ session.mode === 'pressure' ? '压力面试' : '基础训练' }}</small></div>
           <span>{{ session.questions.length }} 题</span><b>{{ session.attempts.length }} 次回答</b><span class="history-score">均分 {{ sessionAverage(session) }}</span><span class="history-arrow">{{ selectedId === session.id ? '收起 ↑' : '查看 →' }}</span>
         </button>
         <p v-if="!sessions.length" class="muted-block">完成第一次训练后，这里会显示问题、回答和改进建议。</p>
@@ -46,7 +46,13 @@ function sessionAverage(session: TrainingSession): number | string {
     </div>
 
     <article v-if="selectedSession" class="panel session-detail" data-testid="training-history-detail">
-      <div class="session-detail-heading"><div><span class="eyebrow">SESSION DETAIL</span><h2>{{ selectedSession.title }}</h2><p>{{ new Date(selectedSession.createdAt).toLocaleString('zh-CN') }} · {{ selectedSession.status === 'completed' ? '已完成' : '进行中' }}</p></div><button class="button ghost compact" type="button" @click="selectedId = ''">关闭</button></div>
+      <div class="session-detail-heading"><div><span class="eyebrow">SESSION DETAIL</span><h2>{{ selectedSession.title }}</h2><p>{{ new Date(selectedSession.createdAt).toLocaleString('zh-CN') }} · {{ selectedSession.status === 'completed' ? '已完成' : '进行中' }} · {{ selectedSession.mode === 'pressure' ? `最多 ${selectedSession.maxRounds ?? 8} 轮动态追问` : '基础训练' }}</p></div><button class="button ghost compact" type="button" @click="selectedId = ''">关闭</button></div>
+      <section v-if="selectedSession.summary" class="history-summary" data-testid="history-pressure-summary">
+        <div><h3>核心竞争力</h3><ul><li v-for="item in selectedSession.summary.coreStrengths" :key="item">{{ item }}</li></ul></div>
+        <div class="risk"><h3>高风险漏洞</h3><ul><li v-for="item in selectedSession.summary.highRiskGaps" :key="item">{{ item }}</li></ul></div>
+        <div><h3>后续练习问题</h3><ol><li v-for="item in selectedSession.summary.practiceQuestions" :key="item">{{ item }}</li></ol></div>
+        <div><h3>简历修改建议</h3><ul><li v-for="item in selectedSession.summary.resumeSuggestions" :key="item">{{ item }}</li></ul></div>
+      </section>
       <div class="history-question-list">
         <section v-for="(question, questionIndex) in selectedSession.questions" :key="question.id" class="history-question">
           <div class="history-question-heading"><span>{{ String(questionIndex + 1).padStart(2, '0') }}</span><div><h3>{{ question.text }}</h3><small>{{ question.rationale }}</small></div></div>
@@ -56,6 +62,12 @@ function sessionAverage(session: TrainingSession): number | string {
               <h4>当时如何回答</h4><p class="answer-record" data-testid="history-answer">{{ attempt.answer }}</p>
               <div class="attempt-dimensions"><span v-for="dimension in attempt.dimensions" :key="dimension.key">{{ dimension.label }} {{ dimension.score }}</span></div>
               <h4>当时的改进建议</h4><ul><li v-for="feedback in attempt.feedback" :key="feedback">{{ feedback }}</li></ul>
+              <div v-if="attempt.diagnosis" class="history-diagnosis">
+                <div><h4>证据不足</h4><ul><li v-for="item in attempt.diagnosis.evidenceGaps" :key="item">{{ item }}</li></ul></div>
+                <div><h4>结构 / 表达漏洞</h4><ul><li v-for="item in attempt.diagnosis.logicIssues" :key="item">{{ item }}</li></ul></div>
+                <div><h4>面试官质疑</h4><p>{{ attempt.diagnosis.interviewerChallenge }}</p></div>
+                <div><h4>简历同步建议</h4><p>{{ attempt.diagnosis.resumeSuggestion }}</p></div>
+              </div>
             </article>
           </template>
           <p v-else class="unanswered">这道题还没有保存回答。</p>

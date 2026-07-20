@@ -18,7 +18,7 @@ const techText = ref('');
 function emptyProject(): ProjectInput {
   return {
     name: '', role: '', background: '', objective: '', architecture: '', responsibilities: '',
-    actions: '', challenges: '', results: '', techStack: []
+    actions: '', challenges: '', results: '', techStack: [], interviewRevisionNotes: ''
   };
 }
 
@@ -107,7 +107,8 @@ function editProject(item: ProjectExperience): void {
     relatedKnowledgeIds: [...item.relatedKnowledgeIds],
     pitch30: item.pitch30,
     pitch90: item.pitch90,
-    deepDive: item.deepDive
+    deepDive: item.deepDive,
+    interviewRevisionNotes: item.interviewRevisionNotes
   });
   techText.value = item.techStack.join(', ');
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -176,6 +177,7 @@ async function submitProject(): Promise<void> {
           <label>问题难点<textarea v-model="project.challenges" class="input textarea-small"></textarea></label>
           <label>技术栈<input v-model="techText" class="input" placeholder="ACK, Kubernetes, ACR" /></label>
           <label>项目结果<textarea v-model="project.results" class="input textarea-small" required data-testid="project-results"></textarea></label>
+          <label>面试校准记录<textarea v-model="project.interviewRevisionNotes" class="input textarea-small" placeholder="压力面试中发现的证据缺口、修改建议和待补充信息会同步到这里"></textarea></label>
           <button class="button primary full" type="submit" data-testid="project-save">{{ project.id ? '保存修改' : '保存项目经历' }}</button>
         </form>
       </div>
@@ -187,6 +189,7 @@ async function submitProject(): Promise<void> {
             <p>{{ item.background }}</p>
             <div class="tag-row"><span v-for="tech in item.techStack" :key="tech">{{ tech }}</span></div>
             <footer>{{ item.results }}</footer>
+            <details v-if="item.interviewRevisionNotes" class="project-calibration"><summary>查看面试校准记录</summary><p>{{ item.interviewRevisionNotes }}</p></details>
           </article>
         </div>
       </div>

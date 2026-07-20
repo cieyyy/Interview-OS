@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createDemoState } from './domain';
-import { generateQuestions, generateRecommendedAnswer, scoreAnswer } from './training-engine';
+import { createDemoState, nowIso } from './domain';
+import { createPressureFollowUp, diagnosePressureAnswer, generateQuestions, generateRecommendedAnswer, scoreAnswer } from './training-engine';
 
 describe('training engine', () => {
   it('generates project-specific questions offline', () => {
@@ -51,5 +51,36 @@ describe('training engine', () => {
     );
     expect(result.dimensions[0].label).toBe('Accuracy');
     expect(generateRecommendedAnswer(question, project, 'en-US')).toContain(project.name);
+  });
+
+  it('starts pressure mode with one hard question and diagnoses evidence gaps', () => {
+    const state = createDemoState();
+    const project = state.projects[0];
+    const question = generateQuestions(
+      { projectId: project.id, mode: 'pressure', maxRounds: 8, questionCount: 1 },
+      state,
+      undefined,
+      project
+    )[0];
+    const diagnosis = diagnosePressureAnswer('我负责运维，性能提升了 90%。', question, project);
+
+    expect(question.type).toBe('pressure');
+    expect(question.difficulty).toBe('hard');
+    expect(diagnosis.evidenceGaps.join('')).toContain('数据从哪里得出');
+    expect(diagnosis.resumeUpdateNeeded).toBe(true);
+  });
+
+  it('replaces a repeated follow-up with a new pressure question', () => {
+    const state = createDemoState();
+    const project = state.projects[0];
+    const first = generateQuestions({ projectId: project.id, mode: 'pressure' }, state, undefined, project)[0];
+    const next = createPressureFollowUp({
+      id: 'session', title: '压力面试', status: 'active', questions: [first], attempts: [],
+      currentQuestionIndex: 0, language: 'zh-CN', mode: 'pressure', maxRounds: 8,
+      createdAt: nowIso(), updatedAt: nowIso()
+    }, first.text, undefined, project);
+
+    expect(next.text).not.toBe(first.text);
+    expect(next.type).toBe('pressure');
   });
 });

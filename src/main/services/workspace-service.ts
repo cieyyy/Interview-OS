@@ -16,12 +16,13 @@ import type {
 } from '../../shared/domain';
 import { createDemoState, nowIso } from '../../shared/domain';
 import { analyzeJob } from '../../shared/job-analyzer';
-import { generateQuestions, scoreAnswer } from '../../shared/training-engine';
+import { buildPressureSummary, createPressureFollowUp, diagnosePressureAnswer, generateQuestions, scoreAnswer } from '../../shared/training-engine';
 import {
   validateJobInput,
   validateKnowledgeInput,
   validateProjectInput,
   validateTrainingAnswerInput,
+  validateTrainingFinalizeInput,
   validateTrainingStartInput
 } from '../../shared/validation';
 import type { AtomicWorkspaceRepository } from '../storage/workspace-repository';
@@ -114,6 +115,7 @@ export class WorkspaceService {
         pitch30: valid.pitch30 ?? '',
         pitch90: valid.pitch90 ?? '',
         deepDive: valid.deepDive ?? '',
+        interviewRevisionNotes: valid.interviewRevisionNotes ?? '',
         createdAt: existing?.createdAt ?? now,
         updatedAt: now
       };
@@ -150,6 +152,8 @@ export class WorkspaceService {
         attempts: [],
         currentQuestionIndex: 0,
         language: valid.language ?? 'zh-CN',
+        mode: valid.mode ?? 'standard',
+        maxRounds: valid.mode === 'pressure' ? (valid.maxRounds ?? 8) : undefined,
         createdAt: now,
         updatedAt: now
       };
@@ -182,13 +186,17 @@ export class WorkspaceService {
   }
 
   async finalizeTraining(input: TrainingFinalizeInput): Promise<TrainingSession> {
-    const valid = validateTrainingAnswerInput(input);
+    const valid = validateTrainingFinalizeInput(input);
     return this.repository.update((draft) => {
       const session = draft.trainingSessions.find((item) => item.id === valid.sessionId);
       if (!session) throw new Error('未找到训练会话');
       const currentQuestion = session.questions.find((item) => item.id === valid.questionId);
       if (!currentQuestion) throw new Error('未找到训练问题');
       const scored = scoreAnswer(valid.answer, currentQuestion, session.language ?? 'zh-CN');
+      const project = session.projectId ? draft.projects.find((item) => item.id === session.projectId) : undefined;
+      const job = session.jobId ? draft.jobs.find((item) => item.id === session.jobId) : undefined;
+      const diagnosis = valid.coach?.diagnosis
+        ?? diagnosePressureAnswer(valid.answer, currentQuestion, project, session.language ?? 'zh-CN');
       const now = nowIso();
       session.attempts.push({
         id: randomUUID(),
@@ -196,12 +204,26 @@ export class WorkspaceService {
         answer: valid.answer,
         ...scored,
         isFinal: true,
+        diagnosis,
         createdAt: now,
         updatedAt: now
       });
       const questionIndex = session.questions.findIndex((item) => item.id === currentQuestion.id);
-      session.currentQuestionIndex = Math.min(questionIndex + 1, session.questions.length - 1);
-      if (questionIndex >= session.questions.length - 1) session.status = 'completed';
+      if (session.mode === 'pressure') {
+        const completedRounds = session.attempts.filter((item) => item.isFinal).length;
+        const maxRounds = session.maxRounds ?? 8;
+        if (completedRounds >= maxRounds) {
+          session.status = 'completed';
+          session.summary = buildPressureSummary(session, project, valid.coach?.sessionSummary);
+        } else {
+          const nextQuestion = createPressureFollowUp(session, valid.coach?.followUpQuestion ?? '', job, project);
+          session.questions.push(nextQuestion);
+          session.currentQuestionIndex = session.questions.length - 1;
+        }
+      } else {
+        session.currentQuestionIndex = Math.min(questionIndex + 1, session.questions.length - 1);
+        if (questionIndex >= session.questions.length - 1) session.status = 'completed';
+      }
       session.updatedAt = now;
 
       draft.knowledge.unshift({

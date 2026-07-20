@@ -37,5 +37,36 @@ describe('WorkspaceService', () => {
     await service.finalizeTraining({ sessionId: session.id, questionId: question.id, answer: analyzed.attempts[0].answer });
     expect(service.getState().knowledge.some((item) => item.type === 'answer')).toBe(true);
   });
-});
 
+  it('runs a dynamic pressure interview and produces a final risk summary', async () => {
+    const project = await service.saveProject({
+      name: '压力测试项目', role: '平台运维', background: '业务运行在 Kubernetes 集群',
+      responsibilities: '负责部署和故障排查', actions: '查看日志并更新 Deployment',
+      results: '服务恢复并完成验证', techStack: ['Kubernetes']
+    });
+    const job = await service.analyzeJob({ title: '云原生技术支持', company: '目标公司', rawText: '要求 Kubernetes、故障排查和客户沟通。' });
+    let session = await service.startTraining({ projectId: project.id, jobId: job.id, mode: 'pressure', maxRounds: 2 });
+    expect(session.questions).toHaveLength(1);
+    expect(session.mode).toBe('pressure');
+
+    const first = session.questions[0];
+    session = await service.finalizeTraining({
+      sessionId: session.id,
+      questionId: first.id,
+      answer: '背景是服务发布失败。我负责排查，通过日志发现配置错误，修复 Deployment 后验证接口恢复。'
+    });
+    expect(session.questions).toHaveLength(2);
+    expect(session.questions[1].text).not.toBe(first.text);
+    expect(session.status).toBe('active');
+
+    const second = session.questions[1];
+    session = await service.finalizeTraining({
+      sessionId: session.id,
+      questionId: second.id,
+      answer: '我本人完成日志检查和配置修复，通过接口测试记录确认服务恢复。'
+    });
+    expect(session.status).toBe('completed');
+    expect(session.summary?.highRiskGaps.length).toBeGreaterThan(0);
+    expect(session.summary?.practiceQuestions).toHaveLength(5);
+  });
+});

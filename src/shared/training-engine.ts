@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type {
+  InterviewDiagnosis,
   InterviewQuestion,
   JobDescription,
+  PressureSessionSummary,
   ProjectExperience,
   ScoreDimension,
   TrainingLanguage,
+  TrainingSession,
   TrainingStartInput,
   WorkspaceState
 } from './domain';
@@ -114,6 +117,17 @@ export function generateQuestions(
     ? candidates.filter((item) => item.type === input.type)
     : candidates;
   const selected = filtered.length ? filtered : candidates;
+  if (input.mode === 'pressure') {
+    const first = selected[0] ?? candidates[0];
+    return first ? [{
+      ...first,
+      type: 'pressure',
+      difficulty: 'hard',
+      rationale: english
+        ? `Pressure round 1: verify whether this resume claim can withstand follow-up questions. ${first.rationale}`
+        : `压力面试第 1 轮：验证这条简历经历能否经得起连续追问。${first.rationale}`
+    }] : [];
+  }
   return selected.slice(0, input.questionCount ?? 5);
 }
 
@@ -234,4 +248,176 @@ export function generateRecommendedAnswer(
     return `建议按“具体背景—个人职责—关键行动—验证结果”回答，并围绕“${currentQuestion.targetKeywords.join('、')}”补充真实细节。只使用自己确实做过、能够被追问验证的内容。`;
   }
   return `这个项目是${project.name}。当时的背景是：${project.background}。我在项目中担任${project.role}，主要负责${project.responsibilities}。${project.challenges ? `其中一个关键难点是${project.challenges}。` : ''}${project.actions ? `我采取的主要行动是${project.actions}。` : ''}最终${project.results}。这段经历让我积累了${project.techStack.join('、') || '平台运维与故障排查'}方面的真实经验。`;
+}
+
+function hasAny(text: string, terms: RegExp): boolean {
+  return terms.test(text);
+}
+
+function safeEvidence(value: string | undefined, language: TrainingLanguage): string {
+  if (!value || /待补充|待命名|未单独列出/.test(value)) {
+    return language === 'en-US' ? '[CANDIDATE MUST ADD EVIDENCE]' : '【需要本人补充】';
+  }
+  return value;
+}
+
+export function diagnosePressureAnswer(
+  answer: string,
+  currentQuestion: InterviewQuestion,
+  project?: ProjectExperience,
+  language: TrainingLanguage = 'zh-CN'
+): InterviewDiagnosis {
+  const english = language === 'en-US';
+  const scored = scoreAnswer(answer, currentQuestion, language);
+  const contribution = scored.dimensions.find((item) => item.key === 'contribution')?.score ?? 0;
+  const structure = scored.dimensions.find((item) => item.key === 'structure')?.score ?? 0;
+  const accuracy = scored.dimensions.find((item) => item.key === 'accuracy')?.score ?? 0;
+  const authenticity = scored.dimensions.find((item) => item.key === 'authenticity')?.score ?? 0;
+  const evidenceGaps: string[] = [];
+  const logicIssues: string[] = [];
+  const hasNumber = /\b\d+(?:\.\d+)?%?\b/.test(answer);
+  const hasEvidenceSource = hasAny(answer, english
+    ? /log|metric|monitor|ticket|report|test|query|dashboard|record|verified|measured/i
+    : /日志|监控|指标|工单|报告|测试|查询|看板|记录|验证|统计|测量/);
+  const hasResult = hasAny(answer, english
+    ? /result|restored|released|completed|improved|reduced|resolved|verified/i
+    : /结果|恢复|上线|完成|提升|降低|解决|验证/);
+
+  if (answer.trim().length < (english ? 140 : 80)) {
+    evidenceGaps.push(english ? 'The answer is too short to verify the full context, action, and result.' : '回答过短，无法验证完整的背景、行动和结果。');
+  }
+  if (contribution < 65) {
+    evidenceGaps.push(english ? 'Your personal actions and ownership are not specific enough.' : '个人动作和责任边界不够具体。');
+  }
+  if (!hasResult) {
+    evidenceGaps.push(english ? 'No verified result or acceptance criterion was provided.' : '没有说明可验证的结果或验收方式。');
+  }
+  if (hasNumber && !hasEvidenceSource) {
+    evidenceGaps.push(english ? 'A numeric claim is present, but its data source is missing.' : '出现了量化结果，但没有说明数据从哪里得出。');
+  } else if (!hasNumber && !hasEvidenceSource) {
+    evidenceGaps.push(english ? 'Add either a measured result or a concrete verification method.' : '缺少量化结果或具体的验证依据。');
+  }
+  if (accuracy < 70) logicIssues.push(english ? 'Technical diagnosis and verification details are incomplete.' : '技术排查与验证细节不完整。');
+  if (structure < 70) logicIssues.push(english ? 'The context, responsibility, action, and result are mixed together.' : '背景、职责、行动和结果混在一起，主线不清楚。');
+  if (authenticity < 80) logicIssues.push(english ? 'Some claims may be challenged because the evidence source is unclear.' : '部分表述可能被质疑，证据来源需要补充。');
+  if (!logicIssues.length) logicIssues.push(english ? 'The structure is mostly clear; remove repetition and keep only verifiable facts.' : '结构基本清楚，下一步应压缩重复表达，只保留可验证事实。');
+
+  const starAnswer = project
+    ? (english
+        ? `Situation: ${safeEvidence(project.background, language)}\nTask: I was responsible for ${safeEvidence(project.responsibilities, language)}\nAction: ${safeEvidence(project.actions || project.challenges, language)}\nResult: ${safeEvidence(project.results, language)}\nEvidence source: ${hasEvidenceSource ? 'Use the logs, metrics, tickets, or test records mentioned in your answer.' : '[CANDIDATE MUST ADD EVIDENCE]'}`
+        : `背景：${safeEvidence(project.background, language)}\n任务：我主要负责${safeEvidence(project.responsibilities, language)}\n行动：${safeEvidence(project.actions || project.challenges, language)}\n结果：${safeEvidence(project.results, language)}\n证据来源：${hasEvidenceSource ? '使用回答中提到的日志、监控、工单或测试记录进行证明。' : '【需要本人补充】'}`)
+    : (english
+        ? 'Situation: [CANDIDATE MUST ADD EVIDENCE]\nTask: [CANDIDATE MUST ADD EVIDENCE]\nAction: [CANDIDATE MUST ADD EVIDENCE]\nResult: [CANDIDATE MUST ADD EVIDENCE]'
+        : '背景：【需要本人补充】\n任务：【需要本人补充】\n行动：【需要本人补充】\n结果：【需要本人补充】');
+  const interviewerChallenge = scored.clarifyingQuestions[0]
+    ?? (english ? 'How can you prove that this result was caused by your actions?' : '你如何证明这个结果确实由你的行动带来？');
+  const resumeUpdateNeeded = evidenceGaps.length > 0 || structure < 75 || contribution < 75;
+  const resumeSuggestion = resumeUpdateNeeded
+    ? (english
+        ? `For the “${project?.name ?? 'selected'}” resume entry, add your ownership boundary, one key action, the verification method, and the source of any numeric result. Unknown facts must remain marked for completion.`
+        : `建议在“${project?.name ?? '当前'}”项目经历中补充：个人责任边界、一个关键动作、结果验证方式，以及量化数据的来源；无法确认的信息保留“【需要本人补充】”。`)
+    : (english ? 'The resume entry is consistent with this answer; only tighten wording.' : '当前回答与项目经历基本一致，仅需压缩措辞。');
+
+  return {
+    evidenceGaps: [...new Set(evidenceGaps)].slice(0, 6),
+    logicIssues: [...new Set(logicIssues)].slice(0, 6),
+    interviewerChallenge,
+    starAnswer,
+    resumeUpdateNeeded,
+    resumeSuggestion
+  };
+}
+
+function normalizeQuestionText(value: string): string {
+  return value.toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
+}
+
+function isRepeatedQuestion(candidate: string, questions: InterviewQuestion[]): boolean {
+  const normalized = normalizeQuestionText(candidate);
+  if (!normalized) return true;
+  return questions.some((item) => {
+    const existing = normalizeQuestionText(item.text);
+    return existing === normalized || existing.includes(normalized) || normalized.includes(existing);
+  });
+}
+
+export function createPressureFollowUp(
+  session: TrainingSession,
+  requestedQuestion: string,
+  job?: JobDescription,
+  project?: ProjectExperience
+): InterviewQuestion {
+  const english = session.language === 'en-US';
+  const round = session.attempts.filter((item) => item.isFinal).length + 1;
+  const fallbacks = english ? [
+    `Which actions in “${project?.name ?? 'this experience'}” were completed by you personally, and which were completed by others?`,
+    'Describe the hardest failure or setback. What did you do when your first approach did not work?',
+    'You mentioned a result. What evidence, measurement window, or record proves it?',
+    `How does this experience demonstrate a required capability for ${job?.title ?? 'the target role'}?`,
+    'Walk me through one technical decision in enough detail that an engineer could challenge it.',
+    'What risk did you miss at the time, and what would you change if you repeated the work?',
+    'Give me the strongest claim on your resume and prove it without using vague adjectives.'
+  ] : [
+    `在“${project?.name ?? '这段经历'}”里，哪些动作是你亲自完成的，哪些是其他人完成的？`,
+    '请讲一次最困难的失败或受阻经历。第一种方案无效时，你具体怎么处理？',
+    '你刚才提到了结果。这个结果的统计口径、验证周期和数据记录分别是什么？',
+    `这段经历如何证明你符合“${job?.title ?? '目标岗位'}”的一项核心要求？`,
+    '请把其中一个技术决策讲到工程师可以继续质疑的深度。',
+    '当时你漏掉了什么风险？如果重做一次，你会修改哪一步？',
+    '选择简历上最强的一句话，不使用模糊形容词，直接证明它。'
+  ];
+  let text = requestedQuestion.trim();
+  if (!text || isRepeatedQuestion(text, session.questions)) {
+    text = fallbacks.find((item) => !isRepeatedQuestion(item, session.questions))
+      ?? fallbacks[(Math.max(2, round) - 2) % fallbacks.length];
+  }
+  return question(
+    text,
+    english ? `Dynamic pressure follow-up for round ${round}` : `根据上一轮回答生成的第 ${round} 轮动态追问`,
+    english ? ['evidence', 'ownership', 'action', 'result', 'role match'] : ['证据', '个人贡献', '行动', '结果', '岗位匹配'],
+    [job?.id, project?.id].filter(Boolean) as string[],
+    'pressure',
+    'hard'
+  );
+}
+
+export function buildPressureSummary(
+  session: TrainingSession,
+  project?: ProjectExperience,
+  supplied?: PressureSessionSummary
+): PressureSessionSummary {
+  if (supplied?.coreStrengths?.length && supplied.highRiskGaps?.length) return supplied;
+  const finals = session.attempts.filter((item) => item.isFinal);
+  const dimensionRows = finals.flatMap((attempt) => attempt.dimensions);
+  const dimensionAverage = (key: ScoreDimension['key']): number => {
+    const rows = dimensionRows.filter((item) => item.key === key);
+    return rows.length ? Math.round(rows.reduce((sum, item) => sum + item.score, 0) / rows.length) : 0;
+  };
+  const ranked = (['accuracy', 'structure', 'contribution', 'jobMatch', 'naturalness', 'authenticity'] as const)
+    .map((key) => ({ key, score: dimensionAverage(key), label: dimensionRows.find((item) => item.key === key)?.label ?? key }))
+    .sort((left, right) => right.score - left.score);
+  const challenges = finals.map((item) => item.diagnosis?.interviewerChallenge).filter(Boolean) as string[];
+  const resumeSuggestions = finals.map((item) => item.diagnosis?.resumeSuggestion).filter(Boolean) as string[];
+  const evidenceGaps = finals.flatMap((item) => item.diagnosis?.evidenceGaps ?? []);
+  const defaultQuestions = [
+    '这个结果的证据和统计口径是什么？',
+    '其中哪些动作由你本人完成？',
+    '第一次方案失败时你如何调整？',
+    '这段经历与目标岗位的核心要求有什么关系？',
+    '如果重做一次，你会修改哪个技术或协作决策？'
+  ];
+  return {
+    coreStrengths: ranked.slice(0, 3).map((item) => `${item.label}：平均 ${item.score} 分`).filter((item) => !item.endsWith('0 分')),
+    highRiskGaps: [...new Set([...evidenceGaps, ...ranked.slice(-3).map((item) => `${item.label}仍是高风险项，当前平均 ${item.score} 分`)])].slice(0, 3),
+    practiceQuestions: [...new Set([...challenges, ...defaultQuestions])].slice(0, 5),
+    resumeSuggestions: [...new Set(resumeSuggestions.length ? resumeSuggestions : [`重新核对“${project?.name ?? '核心项目'}”中的个人贡献、数据来源和验证结果。`])].slice(0, 5),
+    checklist: [
+      '目标公司、目标岗位和 JD 已核对',
+      '简历每个数字都有来源或验证方式',
+      '项目中的个人职责与团队职责已分开',
+      '至少准备一个失败、冲突或回滚案例',
+      '每个核心项目都有 30 秒、90 秒和深入追问版本',
+      '无法确认的信息保留“【需要本人补充】”，不编造'
+    ]
+  };
 }

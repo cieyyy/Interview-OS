@@ -62,6 +62,7 @@ export interface ProjectExperience extends BaseEntity {
   pitch30: string;
   pitch90: string;
   deepDive: string;
+  interviewRevisionNotes?: string;
 }
 
 export type RequirementPriority = 'must' | 'preferred' | 'context';
@@ -95,6 +96,7 @@ export interface JobDescription extends BaseEntity {
 
 export type InterviewQuestionType = 'project' | 'technical' | 'behavioral' | 'hr' | 'pressure';
 export type TrainingLanguage = 'zh-CN' | 'en-US';
+export type TrainingMode = 'standard' | 'pressure';
 
 export interface InterviewQuestion {
   id: EntityId;
@@ -121,6 +123,24 @@ export interface AnswerAttempt extends BaseEntity {
   feedback: string[];
   clarifyingQuestions: string[];
   isFinal: boolean;
+  diagnosis?: InterviewDiagnosis;
+}
+
+export interface InterviewDiagnosis {
+  evidenceGaps: string[];
+  logicIssues: string[];
+  interviewerChallenge: string;
+  starAnswer: string;
+  resumeUpdateNeeded: boolean;
+  resumeSuggestion: string;
+}
+
+export interface PressureSessionSummary {
+  coreStrengths: string[];
+  highRiskGaps: string[];
+  practiceQuestions: string[];
+  resumeSuggestions: string[];
+  checklist: string[];
 }
 
 export interface TrainingSession extends BaseEntity {
@@ -132,6 +152,9 @@ export interface TrainingSession extends BaseEntity {
   attempts: AnswerAttempt[];
   currentQuestionIndex: number;
   language?: TrainingLanguage;
+  mode?: TrainingMode;
+  maxRounds?: number;
+  summary?: PressureSessionSummary;
 }
 
 export interface ProviderConfig {
@@ -197,6 +220,7 @@ export interface ProjectInput {
   pitch30?: string;
   pitch90?: string;
   deepDive?: string;
+  interviewRevisionNotes?: string;
 }
 
 export interface JobInput {
@@ -212,6 +236,8 @@ export interface TrainingStartInput {
   difficulty?: 'easy' | 'medium' | 'hard';
   questionCount?: number;
   language?: TrainingLanguage;
+  mode?: TrainingMode;
+  maxRounds?: number;
 }
 
 export interface TrainingAnswerInput {
@@ -220,7 +246,9 @@ export interface TrainingAnswerInput {
   answer: string;
 }
 
-export interface TrainingFinalizeInput extends TrainingAnswerInput {}
+export interface TrainingFinalizeInput extends TrainingAnswerInput {
+  coach?: TrainingCoachResult;
+}
 
 export interface TrainingCoachInput {
   sessionId: EntityId;
@@ -233,6 +261,8 @@ export interface TrainingCoachResult {
   feedback: string;
   recommendedAnswer: string;
   followUpQuestion: string;
+  diagnosis: InterviewDiagnosis;
+  sessionSummary?: PressureSessionSummary;
   source: 'ai' | 'local';
 }
 
@@ -365,6 +395,7 @@ export function createDemoState(): WorkspaceState {
         pitch30: '',
         pitch90: '',
         deepDive: '',
+        interviewRevisionNotes: '',
         createdAt: now,
         updatedAt: now
       }

@@ -113,34 +113,56 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await page.getByTestId('training-job').selectOption(jobOptionValue!);
     await page.getByTestId('training-project').selectOption({ label: 'AI 漫剧算力平台' });
     await page.getByTestId('training-language').selectOption('en-US');
+    await page.getByTestId('training-max-rounds').selectOption('2');
     await page.getByTestId('training-start').click();
     await expect(page.getByTestId('training-stage')).toBeVisible();
     await expect(page.getByTestId('training-question')).toContainText('Please introduce');
     await expect(page.getByTestId('training-microphone')).toBeVisible();
     await page.getByTestId('training-recommended').click();
     await expect(page.getByTestId('training-recommended-answer')).toContainText('AI 漫剧算力平台');
-    await page.screenshot({ path: path.resolve('artifacts', 'training-v0.3.png'), fullPage: true });
+    await page.screenshot({ path: path.resolve('artifacts', 'training-v0.4.png'), fullPage: true });
     await page.getByTestId('training-answer').fill(
       'The background was a failed canvas request. I was responsible for API integration and log diagnosis. I checked the service logs and configuration, found an inconsistent model mapping, coordinated the fix, redeployed it, and verified that the API recovered.'
     );
+    const firstPressureQuestion = await page.getByTestId('training-question').innerText();
     await page.getByTestId('training-submit').click();
     await expect(page.getByTestId('training-score')).toBeVisible();
+    await expect(page.locator('.coach-panel')).toContainText('证据不足');
+    await expect(page.locator('.coach-panel')).toContainText('结构 / 表达漏洞');
+    await page.getByTestId('sync-resume-advice').click();
     await page.getByTestId('training-finalize').click();
+    await expect(page.getByTestId('training-question')).not.toHaveText(firstPressureQuestion);
+    await expect(page.locator('.question-meta')).toContainText('第 2 / 2 轮');
+    await page.getByTestId('training-answer').fill('I personally checked the logs, corrected the Deployment configuration, and used the API test record to verify that the service recovered.');
+    await page.getByTestId('training-submit').click();
+    await expect(page.locator('.coach-panel')).toContainText('Next dynamic follow-up');
+    await page.screenshot({ path: path.resolve('artifacts', 'training-pressure-diagnosis.png'), fullPage: true });
+    await page.getByTestId('training-finalize').click();
+    await expect(page.getByTestId('pressure-summary')).toBeVisible();
+    await expect(page.getByTestId('pressure-summary')).toContainText('核心竞争力');
+    await page.screenshot({ path: path.resolve('artifacts', 'training-pressure-summary.png'), fullPage: true });
+
+    await page.getByTestId('nav-profile').click();
+    await page.getByTestId('profile-project-tab').click();
+    const calibratedProject = page.locator('.project-card').filter({ hasText: /AI/ }).first();
+    await expect(calibratedProject.locator('.project-calibration')).toHaveText(/\S{10,}/);
 
     await page.getByTestId('nav-reports').click();
     await page.locator('.session-row').first().click();
     await expect(page.getByTestId('training-history-detail')).toBeVisible();
     await expect(page.getByTestId('history-answer').first()).toContainText('failed canvas request');
-    await page.screenshot({ path: path.resolve('artifacts', 'reports-v0.3.png'), fullPage: true });
+    await expect(page.locator('.history-diagnosis').first()).toContainText('简历同步建议');
+    await expect(page.getByTestId('history-pressure-summary')).toBeVisible();
+    await page.screenshot({ path: path.resolve('artifacts', 'reports-v0.4.png'), fullPage: true });
 
     await page.getByTestId('nav-assistant').click();
     await expect(page.locator('.assistant-card')).toHaveCount(1);
     await expect(page.getByTestId('assistant-enter-training')).toBeVisible();
-    await page.screenshot({ path: path.resolve('artifacts', 'assistant-v0.3.png'), fullPage: true });
+    await page.screenshot({ path: path.resolve('artifacts', 'assistant-v0.4.png'), fullPage: true });
 
     await page.getByTestId('nav-settings').click();
     await expect(page.locator('.settings-card')).toHaveCount(3);
-    await page.screenshot({ path: path.resolve('artifacts', 'settings-v0.3.png'), fullPage: true });
+    await page.screenshot({ path: path.resolve('artifacts', 'settings-v0.4.png'), fullPage: true });
 
     await page.getByTestId('nav-knowledge').click();
     await page.getByTestId('knowledge-search').fill('Please introduce');
@@ -163,7 +185,7 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     });
     try {
       const restartedPage = await restarted.firstWindow();
-      await expect(restartedPage.getByTestId('stat-knowledge')).toHaveText('3');
+      await expect(restartedPage.getByTestId('stat-knowledge')).toHaveText('4');
       await expect(restartedPage.getByTestId('stat-jobs')).toHaveText('1');
     } finally {
       await restarted.close();
