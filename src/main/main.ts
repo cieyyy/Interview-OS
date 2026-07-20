@@ -46,6 +46,24 @@ async function createWindow(): Promise<void> {
   });
   mainWindow.removeMenu();
 
+  // Speech recognition needs microphone access. Only the current application
+  // window may request audio; camera, display capture and all unrelated
+  // permission requests remain denied.
+  const appSession = mainWindow.webContents.session;
+  appSession.setPermissionCheckHandler((webContents, permission, _origin, details) => {
+    return permission === 'media'
+      && webContents?.id === mainWindow?.webContents.id
+      && details.mediaType !== 'video';
+  });
+  appSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    const mediaTypes = 'mediaTypes' in details ? details.mediaTypes ?? [] : [];
+    const allowAudio = permission === 'media'
+      && webContents.id === mainWindow?.webContents.id
+      && mediaTypes.includes('audio')
+      && !mediaTypes.includes('video');
+    callback(allowAudio);
+  });
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };

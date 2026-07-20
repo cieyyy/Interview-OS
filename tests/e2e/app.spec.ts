@@ -43,14 +43,45 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     };
 
     const resumePath = path.join(dataDirectory, 'resume.txt');
-    await writeFile(resumePath, '姓名：E2E用户\n当前岗位：运维工程师\n工作年限：2年\n学历：本科\n目标岗位：AI技术支持\n技能：Kubernetes:熟悉，Docker:掌握', 'utf8');
+    await writeFile(resumePath, [
+      '姓名：E2E用户',
+      '当前岗位：运维工程师',
+      '工作年限：2年',
+      '学历：本科',
+      '目标岗位：AI技术支持',
+      '技能：Kubernetes:熟悉，Docker:掌握',
+      '项目经历',
+      '项目名称：E2E 算力平台',
+      '项目角色：平台运维',
+      '项目背景：负责画布与模型中转平台。',
+      '个人职责：负责 ACK 发布和 API 联调。',
+      '技术栈：Kubernetes，ACK，ACR',
+      '项目结果：完成版本上线。',
+      '项目名称：E2E 成本系统',
+      '项目角色：运维工程师',
+      '项目背景：内部成本管理。',
+      '个人职责：负责自动部署和运行维护。',
+      '项目结果：系统稳定运行。',
+      '教育背景',
+      '本科'
+    ].join('\n'), 'utf8');
     await mockFileSelection(resumePath);
     await page.getByTestId('nav-profile').click();
     await page.getByTestId('profile-import-file').click();
     await expect(page.getByTestId('profile-role')).toHaveValue('运维工程师');
+    await expect(page.getByTestId('profile-import-summary')).toContainText('2 段项目经历');
+    await expect(page.getByText('识别方式说明')).toBeVisible();
     await mkdir(path.resolve('artifacts'), { recursive: true });
     await page.screenshot({ path: path.resolve('artifacts', 'profile-import.png'), fullPage: true });
     await page.getByRole('button', { name: '保存职业档案' }).click();
+    await page.getByTestId('profile-project-tab').click();
+    await expect(page.locator('.project-card')).toHaveCount(3);
+    const importedProject = page.locator('.project-card', { hasText: 'E2E 算力平台' });
+    await importedProject.getByRole('button', { name: '编辑' }).click();
+    await expect(page.getByTestId('project-name')).toHaveValue('E2E 算力平台');
+    await page.getByTestId('project-results').fill('完成版本上线并通过接口验证。');
+    await page.getByTestId('project-save').click();
+    await expect(importedProject).toContainText('完成版本上线并通过接口验证');
 
     await page.getByTestId('nav-knowledge').click();
     const knowledgePath = path.join(dataDirectory, 'knowledge.md');
@@ -81,17 +112,38 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     expect(jobOptionValue).toBeTruthy();
     await page.getByTestId('training-job').selectOption(jobOptionValue!);
     await page.getByTestId('training-project').selectOption({ label: 'AI 漫剧算力平台' });
+    await page.getByTestId('training-language').selectOption('en-US');
     await page.getByTestId('training-start').click();
     await expect(page.getByTestId('training-stage')).toBeVisible();
+    await expect(page.getByTestId('training-question')).toContainText('Please introduce');
+    await expect(page.getByTestId('training-microphone')).toBeVisible();
+    await page.getByTestId('training-recommended').click();
+    await expect(page.getByTestId('training-recommended-answer')).toContainText('AI 漫剧算力平台');
+    await page.screenshot({ path: path.resolve('artifacts', 'training-v0.3.png'), fullPage: true });
     await page.getByTestId('training-answer').fill(
-      '背景是画布调用算力平台失败。我负责接口联调和日志排查。我通过平台日志、接口测试和配置对比发现模型映射不一致，协调开发修复后重新部署，并通过业务接口验证最终恢复。'
+      'The background was a failed canvas request. I was responsible for API integration and log diagnosis. I checked the service logs and configuration, found an inconsistent model mapping, coordinated the fix, redeployed it, and verified that the API recovered.'
     );
     await page.getByTestId('training-submit').click();
     await expect(page.getByTestId('training-score')).toBeVisible();
     await page.getByTestId('training-finalize').click();
 
+    await page.getByTestId('nav-reports').click();
+    await page.locator('.session-row').first().click();
+    await expect(page.getByTestId('training-history-detail')).toBeVisible();
+    await expect(page.getByTestId('history-answer').first()).toContainText('failed canvas request');
+    await page.screenshot({ path: path.resolve('artifacts', 'reports-v0.3.png'), fullPage: true });
+
+    await page.getByTestId('nav-assistant').click();
+    await expect(page.locator('.assistant-card')).toHaveCount(1);
+    await expect(page.getByTestId('assistant-enter-training')).toBeVisible();
+    await page.screenshot({ path: path.resolve('artifacts', 'assistant-v0.3.png'), fullPage: true });
+
+    await page.getByTestId('nav-settings').click();
+    await expect(page.locator('.settings-card')).toHaveCount(3);
+    await page.screenshot({ path: path.resolve('artifacts', 'settings-v0.3.png'), fullPage: true });
+
     await page.getByTestId('nav-knowledge').click();
-    await page.getByTestId('knowledge-search').fill('请介绍一下');
+    await page.getByTestId('knowledge-search').fill('Please introduce');
     await expect(page.locator('.collection-list .collection-item')).toHaveCount(1);
 
     await app.close();

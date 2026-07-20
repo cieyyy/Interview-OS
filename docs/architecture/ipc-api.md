@@ -2,7 +2,7 @@
 
 ## 文档导入
 
-`document:import(target)` 只允许 `job`、`profile`、`knowledge` 三种目标。主进程打开原生单文件选择器，校验文件类型、大小和内容后返回结构化草稿。Renderer 不接收任意文件系统读取能力，也不能直接传入路径。图片识别由主进程调用当前启用的 Provider；导入服务不写入业务数据，最终保存仍由对应页面的显式保存动作完成。
+`document:import(target)` 只允许 `job`、`profile`、`knowledge` 三种目标。主进程打开原生单文件选择器，校验文件类型、大小和内容后返回结构化结果。Renderer 不接收任意文件系统读取能力，也不能直接传入路径。图片识别由主进程调用当前启用的 Provider。JD、知识卡和基础档案仍需用户显式保存；完整简历中识别出的项目经历会由职业档案页按项目名称去重后调用 `project:save` 自动保存，并提示用户逐条核对。
 
 ## 1. 原则
 
@@ -25,6 +25,7 @@
 | `training:start` | `TrainingStartInput` | `TrainingSession` | 生成问题 |
 | `training:submit` | `TrainingAnswerInput` | `TrainingSession` | 评分并保存回答 |
 | `training:finalize` | `TrainingFinalizeInput` | `TrainingSession` | 保存最终回答并回写知识 |
+| `training:coach` | `TrainingCoachInput` | `TrainingCoachResult` | AI 1V1 陪练；未启用 Provider 时返回本地推荐回答 |
 | `backup:create` | 无 | `BackupInfo` | 创建无凭据备份 |
 | `export:markdown` | 无 | `ExportInfo` | 导出 Markdown |
 | `provider:save` | `ProviderInput` | `ProviderSummary` | Key 经安全存储保存 |

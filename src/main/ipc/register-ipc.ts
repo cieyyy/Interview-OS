@@ -45,6 +45,7 @@ export function registerIpc(
   ipcMain.handle(IPC.startTraining, (_event, input) => safe(() => workspace.startTraining(input)));
   ipcMain.handle(IPC.submitTraining, (_event, input) => safe(() => workspace.submitTraining(input)));
   ipcMain.handle(IPC.finalizeTraining, (_event, input) => safe(() => workspace.finalizeTraining(input)));
+  ipcMain.handle(IPC.coachTraining, (_event, input) => safe(() => provider.coach(input)));
   ipcMain.handle(IPC.createBackup, () => safe(() => repository.createBackup()));
   ipcMain.handle(IPC.exportMarkdown, () => safe(() => repository.exportMarkdown()));
   ipcMain.handle(IPC.saveProvider, (_event, input) => safe(() => provider.save(input)));

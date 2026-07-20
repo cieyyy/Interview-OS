@@ -1,15 +1,16 @@
 # Interview OS
 
-> 当前版本：0.2.0
+> 当前版本：0.3.0
 
 Interview OS 是一款本地优先、AI 增强的 Windows 面试知识库桌面应用。
 
 ## 当前范围
 
-- 职业档案和项目经历管理；
+- 完整简历导入、项目经历自动识别、去重保存与编辑；
 - 面试知识库；
 - JD 结构化和证据化匹配；
-- 文字模拟面试、评分、重答和沉淀；
+- 中英文模拟面试、麦克风语音识别、AI 1V1 陪练、推荐回答与重答沉淀；
+- 可点击回看的训练历史、原回答和改进建议；
 - OpenAI 兼容 Provider 与远程 Dify 连接器接口；
 - 本地备份、导出和敏感配置隔离。
 
@@ -26,8 +27,8 @@ npm run package:win
 
 ## 当前可用版本
 
-- 安装版：`release/Interview-OS-0.2.0-x64-setup.exe`
-- 便携版：`release/Interview-OS-0.2.0-x64-portable.exe`
+- 安装版：`release/Interview-OS-0.3.0-x64-setup.exe`
+- 便携版：`release/Interview-OS-0.3.0-x64-portable.exe`
 - 本机安全启动脚本：`scripts/start-interview-os.ps1`
 
 启动脚本会把数据固定在本项目的 `data/interview-os` 目录，即 F 盘工作区内。软件不依赖 Docker、WSL、Redis、PostgreSQL 或 BIOS 虚拟化。
@@ -38,8 +39,9 @@ npm run package:win
 - [技术架构](./docs/architecture/system-design.md)
 - [数据设计](./docs/architecture/data-design.md)
 - [IPC API](./docs/architecture/ipc-api.md)
+- [简历识别设计](./docs/architecture/resume-recognition.md)
 - [测试计划](./docs/testing/test-plan.md)
-- [测试报告](./docs/testing/test-report-2026-07-19.md)
+- [v0.3 测试报告](./docs/testing/test-report-v0.3.0.md)
 - [使用指南](./docs/user-guide.md)
 - [版本发布说明](./docs/releases/README.md)
 

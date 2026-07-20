@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDemoState } from './domain';
-import { generateQuestions, scoreAnswer } from './training-engine';
+import { generateQuestions, generateRecommendedAnswer, scoreAnswer } from './training-engine';
 
 describe('training engine', () => {
   it('generates project-specific questions offline', () => {
@@ -33,5 +33,23 @@ describe('training engine', () => {
     const result = scoreAnswer('我优化后性能提升 99%，客户增长 1000。', question);
     expect(result.dimensions.find((item) => item.key === 'authenticity')?.score).toBeLessThan(94);
   });
-});
 
+  it('generates English questions, feedback and a project-grounded recommended answer', () => {
+    const state = createDemoState();
+    const project = state.projects[0];
+    const question = generateQuestions(
+      { projectId: project.id, questionCount: 1, language: 'en-US' },
+      state,
+      undefined,
+      project
+    )[0];
+    expect(question.text).toContain('Please introduce');
+    const result = scoreAnswer(
+      'The background was a failed API request. I was responsible for diagnosis. I checked logs, found the configuration issue, coordinated the fix, and verified the restored service.',
+      question,
+      'en-US'
+    );
+    expect(result.dimensions[0].label).toBe('Accuracy');
+    expect(generateRecommendedAnswer(question, project, 'en-US')).toContain(project.name);
+  });
+});

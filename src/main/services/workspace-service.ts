@@ -149,6 +149,7 @@ export class WorkspaceService {
         questions: generateQuestions(valid, draft, job, project),
         attempts: [],
         currentQuestionIndex: 0,
+        language: valid.language ?? 'zh-CN',
         createdAt: now,
         updatedAt: now
       };
@@ -164,7 +165,7 @@ export class WorkspaceService {
       if (!session) throw new Error('未找到训练会话');
       const currentQuestion = session.questions.find((item) => item.id === valid.questionId);
       if (!currentQuestion) throw new Error('未找到训练问题');
-      const scored = scoreAnswer(valid.answer, currentQuestion);
+      const scored = scoreAnswer(valid.answer, currentQuestion, session.language ?? 'zh-CN');
       const now = nowIso();
       session.attempts.push({
         id: randomUUID(),
@@ -187,7 +188,7 @@ export class WorkspaceService {
       if (!session) throw new Error('未找到训练会话');
       const currentQuestion = session.questions.find((item) => item.id === valid.questionId);
       if (!currentQuestion) throw new Error('未找到训练问题');
-      const scored = scoreAnswer(valid.answer, currentQuestion);
+      const scored = scoreAnswer(valid.answer, currentQuestion, session.language ?? 'zh-CN');
       const now = nowIso();
       session.attempts.push({
         id: randomUUID(),

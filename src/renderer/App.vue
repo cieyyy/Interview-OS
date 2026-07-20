@@ -46,7 +46,7 @@ const active = computed(() => route.path);
     <main class="main-shell">
       <div class="topbar">
         <div class="workspace-pill">{{ store.workspace?.settings.workspaceName ?? '加载工作区…' }}</div>
-        <div class="topbar-meta">数据仅保存在本机 · AI 可选</div>
+        <div class="topbar-meta" title="档案、项目和训练记录默认保存在本机；只有你主动使用图片识别或 AI 陪练时，相关内容才会发送给已配置的模型服务。">本地优先 · 仅主动使用 AI 时发送所选内容</div>
       </div>
       <div class="content-area">
         <RouterView />
@@ -62,4 +62,3 @@ const active = computed(() => route.path);
     <div v-if="store.loading" class="loading-bar" aria-label="正在处理"></div>
   </div>
 </template>
-

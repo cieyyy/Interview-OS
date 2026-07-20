@@ -3,7 +3,24 @@ import { OpenAICompatibleProvider } from './openai-provider';
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('OpenAICompatibleProvider image recognition payload', () => {
+describe('OpenAICompatibleProvider', () => {
+  it('tests an actual model generation instead of only listing models', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: 'OK' } }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const provider = new OpenAICompatibleProvider({
+      kind: 'openai-compatible', name: 'Test', baseUrl: 'https://example.test/v1',
+      model: 'test-model', enabled: true, hasSecret: true
+    });
+
+    const result = await provider.testConnection('test-key');
+
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe('连接和模型调用成功');
+    expect(fetchMock).toHaveBeenCalledWith('https://example.test/v1/chat/completions', expect.objectContaining({ method: 'POST' }));
+  });
+
   it('sends an image as a data URL through chat completions', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       choices: [{ message: { content: '识别出的文字' } }]

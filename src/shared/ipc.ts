@@ -18,6 +18,8 @@ import type {
   Result,
   TrainingAnswerInput,
   TrainingFinalizeInput,
+  TrainingCoachInput,
+  TrainingCoachResult,
   TrainingSession,
   TrainingStartInput,
   WorkspaceState
@@ -34,6 +36,7 @@ export const IPC = {
   startTraining: 'training:start',
   submitTraining: 'training:submit',
   finalizeTraining: 'training:finalize',
+  coachTraining: 'training:coach',
   createBackup: 'backup:create',
   exportMarkdown: 'export:markdown',
   saveProvider: 'provider:save',
@@ -53,6 +56,7 @@ export interface InterviewOSApi {
   startTraining(input: TrainingStartInput): Promise<Result<TrainingSession>>;
   submitTraining(input: TrainingAnswerInput): Promise<Result<TrainingSession>>;
   finalizeTraining(input: TrainingFinalizeInput): Promise<Result<TrainingSession>>;
+  coachTraining(input: TrainingCoachInput): Promise<Result<TrainingCoachResult>>;
   createBackup(): Promise<Result<BackupInfo>>;
   exportMarkdown(): Promise<Result<ExportInfo>>;
   saveProvider(input: ProviderInput): Promise<Result<ProviderConfig>>;

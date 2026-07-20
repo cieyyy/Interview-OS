@@ -94,6 +94,7 @@ export interface JobDescription extends BaseEntity {
 }
 
 export type InterviewQuestionType = 'project' | 'technical' | 'behavioral' | 'hr' | 'pressure';
+export type TrainingLanguage = 'zh-CN' | 'en-US';
 
 export interface InterviewQuestion {
   id: EntityId;
@@ -130,6 +131,7 @@ export interface TrainingSession extends BaseEntity {
   questions: InterviewQuestion[];
   attempts: AnswerAttempt[];
   currentQuestionIndex: number;
+  language?: TrainingLanguage;
 }
 
 export interface ProviderConfig {
@@ -209,6 +211,7 @@ export interface TrainingStartInput {
   type?: InterviewQuestionType | 'mixed';
   difficulty?: 'easy' | 'medium' | 'hard';
   questionCount?: number;
+  language?: TrainingLanguage;
 }
 
 export interface TrainingAnswerInput {
@@ -218,6 +221,20 @@ export interface TrainingAnswerInput {
 }
 
 export interface TrainingFinalizeInput extends TrainingAnswerInput {}
+
+export interface TrainingCoachInput {
+  sessionId: EntityId;
+  questionId: EntityId;
+  answer?: string;
+  language?: TrainingLanguage;
+}
+
+export interface TrainingCoachResult {
+  feedback: string;
+  recommendedAnswer: string;
+  followUpQuestion: string;
+  source: 'ai' | 'local';
+}
 
 export interface ProviderInput {
   kind: ProviderConfig['kind'];
@@ -257,6 +274,7 @@ export interface DocumentImportResult {
   warnings: string[];
   job?: Partial<JobInput>;
   profile?: Partial<ProfileInput>;
+  projects?: ProjectInput[];
   knowledge?: Partial<KnowledgeInput>;
 }
 

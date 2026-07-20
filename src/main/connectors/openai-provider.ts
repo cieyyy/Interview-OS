@@ -29,6 +29,7 @@ export class OpenAICompatibleProvider implements AIProvider {
       headers: this.headers(apiKey),
       body: JSON.stringify({
         model: this.config.model,
+        store: false,
         instructions: request.system,
         input: [{ role: 'user', content }]
       })
@@ -51,11 +52,11 @@ export class OpenAICompatibleProvider implements AIProvider {
 
   async testConnection(apiKey: string): Promise<ConnectionResult> {
     const started = Date.now();
-    const response = await fetchWithTimeout(`${this.config.baseUrl}/models`, {
-      headers: { Authorization: `Bearer ${apiKey}` }
-    });
-    if (!response.ok) throw new ProviderHttpError(response.status, `模型服务返回 HTTP ${response.status}`);
-    return { ok: true, message: '连接成功', latencyMs: Date.now() - started };
+    await this.complete({
+      system: 'You are a connection tester. Follow the user instruction exactly.',
+      prompt: 'Reply with OK only.'
+    }, apiKey);
+    return { ok: true, message: '连接和模型调用成功', latencyMs: Date.now() - started };
   }
 
   async complete(request: CompletionRequest, apiKey: string): Promise<CompletionResponse> {
@@ -70,6 +71,7 @@ export class OpenAICompatibleProvider implements AIProvider {
       headers: this.headers(apiKey),
       body: JSON.stringify({
         model: this.config.model,
+        store: false,
         temperature: 0.2,
         messages: [
           { role: 'system', content: request.system },

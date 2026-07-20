@@ -9,6 +9,7 @@ import type {
   ProviderInput,
   Result,
   TrainingAnswerInput,
+  TrainingCoachInput,
   TrainingFinalizeInput,
   TrainingSession,
   TrainingStartInput,
@@ -127,6 +128,9 @@ export function useWorkspace() {
         await refresh();
       }
       return value;
+    },
+    async coachTraining(input: TrainingCoachInput) {
+      return run(() => unwrap(window.interviewOS.coachTraining(toIpcPayload(input))), '陪练建议已生成');
     },
     async createBackup() {
       return run(() => unwrap(window.interviewOS.createBackup()), '备份已创建');

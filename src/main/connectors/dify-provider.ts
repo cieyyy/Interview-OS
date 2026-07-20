@@ -7,11 +7,11 @@ export class DifyProvider implements AIProvider {
 
   async testConnection(apiKey: string): Promise<ConnectionResult> {
     const started = Date.now();
-    const response = await fetchWithTimeout(`${this.config.baseUrl}/parameters`, {
-      headers: { Authorization: `Bearer ${apiKey}` }
-    });
-    if (!response.ok) throw new ProviderHttpError(response.status, `Dify 返回 HTTP ${response.status}`);
-    return { ok: true, message: 'Dify 连接成功', latencyMs: Date.now() - started };
+    await this.complete({
+      system: 'You are a connection tester. Follow the user instruction exactly.',
+      prompt: 'Reply with OK only.'
+    }, apiKey);
+    return { ok: true, message: 'Dify 连接和模型调用成功', latencyMs: Date.now() - started };
   }
 
   async complete(request: CompletionRequest, apiKey: string): Promise<CompletionResponse> {

@@ -99,12 +99,15 @@ export function validateJobInput(input: JobInput): JobInput {
 
 export function validateTrainingStartInput(input: TrainingStartInput): TrainingStartInput {
   const count = Math.max(1, Math.min(10, Number(input?.questionCount ?? 5)));
+  const language = input?.language ?? 'zh-CN';
+  if (!['zh-CN', 'en-US'].includes(language)) throw new ValidationError('训练语言无效');
   return {
     jobId: input?.jobId ? cleanText(input.jobId, 'JD ID', 80) : undefined,
     projectId: input?.projectId ? cleanText(input.projectId, '项目 ID', 80) : undefined,
     type: input?.type ?? 'mixed',
     difficulty: input?.difficulty ?? 'medium',
-    questionCount: count
+    questionCount: count,
+    language
   };
 }
 
@@ -156,4 +159,3 @@ export function safeFileName(value: string): string {
     .replace(/[. ]+$/g, '');
   return (normalized || 'untitled').slice(0, 100);
 }
-
