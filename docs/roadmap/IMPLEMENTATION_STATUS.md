@@ -51,7 +51,43 @@
 
 ## Verified Baseline
 
-- Unit tests: 53 passed.
+- Unit tests: 55 passed across 15 test files.
 - Type checking: passed.
 - Production build: passed.
-- Electron E2E: passed; packaged application test remains pending.
+- Electron E2E: main workflow and 15-module typography validation passed; packaged application test remains pending.
+
+## v0.5.0 Career Workspace
+
+### Local Product Modules
+
+- [x] Career Agent plan parsing, execution, Q&A and memory
+- [x] Unified synced-job pool and browser Bridge
+- [x] Deterministic normalization, deduplication and salary parsing
+- [x] Seven-dimension matching, trust, quality, risk and bias indicators
+- [x] Saved filters, in-app alerts and sync logs
+- [x] Job comparison and detail review
+- [x] Company watchlist and recruitment timeline
+- [x] Application pipeline and career calendar
+- [x] Targeted resume variants
+- [x] Capability graph and learning roadmap
+- [x] Data quality and job-market insight views
+- [x] Shared typography scale and UI regression test
+
+### External Connectivity
+
+- [x] Chrome MV3 visible-job extension and localhost token bridge
+- [ ] Liepin MCP production authorization
+- [ ] BOSS MCP production authorization
+- [ ] Company-careers live monitoring
+- [ ] Google Jobs provider selection
+- [ ] Webhook, email and instant-message delivery
+- [ ] Assisted application execution
+
+### Release Readiness
+
+- [x] Source documentation updated for v0.5.0
+- [x] Unit, typecheck, build and Electron source E2E
+- [ ] Windows NSIS package verification
+- [ ] Windows portable package verification
+- [ ] v0.5.0 SHA-256 manifest
+- [ ] Signed Git tag and GitHub Release

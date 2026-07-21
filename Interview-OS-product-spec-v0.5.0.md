@@ -1,84 +1,441 @@
-# Interview OS Product Specification v0.5.0
+# Interview OS 产品与架构说明
 
-## Release Theme
+**版本：** v0.5.0 Career Workspace + Obsidian Phase 1
+**文档类型：** 产品需求文档（PRD）+ 系统架构说明
+**适用阶段：** 本地求职闭环与知识资产导出可用，真实外部连接器逐步接入前
+**更新时间：** 2026-07-21
+**项目位置：** `D:\资料\release\IOS`
 
-Obsidian-compatible career knowledge assets without replacing the existing Interview OS knowledge model.
+> 当前结论：Interview OS 已从“面试知识库”扩展为本地优先的一体化求职工作台。岗位采集、标准化、筛选、匹配、公司关注、简历、投递、面试、数据分析、求职 Agent 与 Obsidian 知识资产导出已经纳入统一数据模型；真实招聘平台抓取、外部推送、自动投递和 Obsidian 双向同步仍保持关闭，等待后续逐连接器验收。
 
-## Product State
+## 1. 产品定义
 
-| Capability | Current state |
-| --- | --- |
-| Interview OS local knowledge base | Real and usable |
-| Obsidian dedicated Vault creation | Phase 1 implemented |
-| Existing Vault connection | Phase 1 implemented |
-| Obsidian one-way export | Phase 1 implemented and unit tested |
-| Stable ID and sync index | Phase 1 implemented |
-| Obsidian URI opening | Implemented; OS registration requires desktop E2E verification |
-| Obsidian import | Not implemented |
-| Bidirectional sync | Not implemented |
-| File watcher | Not implemented |
-| Conflict detection | Phase 1 hash protection implemented |
-| Conflict resolution UI | Not implemented |
-| Full resume export | Not implemented; metadata only |
+### 1.1 产品愿景
 
-## Architecture Rules
+Interview OS 希望成为个人求职过程的本地操作系统，把分散在招聘网站、简历文件、笔记、聊天记录和日程中的信息收束到一套可追踪、可复盘、可持续优化的工作流中。
 
-1. `WorkspaceState` remains authoritative.
-2. Obsidian files use standard Markdown, YAML frontmatter, and WikiLinks.
-3. `interview_os_id` is the stable identity key.
-4. The renderer never accesses Vault files directly.
-5. `.obsidian` is not read or changed.
-6. Local saves do not depend on Vault availability.
-7. Deletion is never silently propagated.
-8. External file modification blocks overwrite.
+产品不只解决“找到岗位”，还要完成以下闭环：
 
-## Phase 1 User Flow
+1. 发现可信且适合自己的岗位。
+2. 理解岗位要求和隐藏条件。
+3. 用真实经历生成定向简历和沟通材料。
+4. 管理投递、沟通、面试和 Offer 进展。
+5. 从岗位需求和面试反馈中反向更新能力图谱与知识库。
 
-```text
-Settings
--> connect existing Vault or create dedicated Vault
--> choose synchronization scope and folder mappings
--> preview initial export
--> run manual export
--> inspect sync status
--> open a synchronized note in Obsidian
-```
+### 1.2 产品定位
 
-Knowledge editing also supports **Save and Sync**. The save completes locally first, then export is attempted.
+- **产品形态：** Electron 桌面应用，本地优先运行。
+- **主要用户：** 应届生、社招求职者、转行求职者和需要长期管理职业资产的人。
+- **核心差异：** 岗位、简历、项目证据、投递、面试和复盘使用同一组稳定 ID 关联，而不是多个彼此孤立的工具。
+- **当前边界：** 先把产品模块、数据契约和 UI 做完整，再逐步验证真实岗位采集、推送和辅助投递。
 
-## Supported Objects
+### 1.3 产品原则
 
-- project experience;
-- incident and troubleshooting knowledge;
-- technical knowledge;
-- interview questions;
-- interview answers and training sessions;
-- JD analysis;
-- learning plan knowledge;
-- company research knowledge;
-- job-search retrospectives;
-- resume metadata and evidence links.
+- **真实优先：** 简历和沟通话术只使用职业档案与项目证据，不编造年限、数字和项目。
+- **本地优先：** 工作区、简历、投递和训练记录默认保存在本机。
+- **确定性优先：** 去重、状态、筛选、评分和审计由代码控制；AI 用于语义理解和建议生成。
+- **人工确认：** 外部沟通、简历发送和投递必须由用户确认。
+- **连接器解耦：** 招聘平台变化只影响对应连接器，不影响职位池和下游工作流。
+- **可解释：** 推荐必须展示匹配分项、证据、缺口、风险和数据质量。
 
-## Data Model Changes
+## 2. 目标用户与核心场景
 
-- workspace schema version increased from 1 to 2;
-- `WorkspaceSettings.obsidian` added;
-- `obsidianSyncIndex` added;
-- `obsidianSyncConflicts` added;
-- `obsidianSyncRuns` added;
-- v0.4.0 workspaces migrate with integration disabled and no data loss.
+### 2.1 应届生
 
-## Acceptance For Phase 1
+- 从多个校招官网和招聘平台集中收集岗位。
+- 管理网申截止时间、笔试、面试和结果。
+- 将课程、社团、比赛和生活经历翻译为职业能力表达。
+- 根据目标岗位生成简历版本、面试题包和短期准备计划。
 
-- existing and dedicated Vault workflows exist;
-- no `.obsidian` mutation;
-- folder mappings are configurable and path-safe;
-- Markdown contains stable ID and managed/user blocks;
-- exports use atomic replacement;
-- external changes are not overwritten;
-- local use remains available when Vault is unavailable;
-- unit tests, type checking, and production build pass.
+### 2.2 社招求职者
 
-## Next Phases
+- 使用行业、城市、薪资、经验和技能做组合筛选。
+- 追踪目标公司岗位新增、变更和关闭。
+- 将真实项目和故障案例映射到岗位要求。
+- 管理 HR 沟通、面试轮次、跟进动作和 Offer 对比。
 
-Phase 2 adds incremental scanning, frontmatter parsing, rename/move recognition, and import. Phase 3 adds file watching, loop prevention, bidirectional synchronization, and interactive conflict resolution. Phase 4 adds backlink graph APIs and review synchronization.
+### 2.3 转行求职者
+
+- 用求职 Agent 把自然语言目标转成可执行搜索计划。
+- 区分硬性条件与软偏好，避免过度过滤。
+- 查看现有能力、相关经验和真实技能缺口。
+- 生成阶段化补强路线，而不是只得到一个笼统分数。
+
+## 3. 端到端用户流程
+
+1. 用户维护职业档案、技能、项目经历和目标方向。
+2. 用户用自然语言创建求职 Agent 搜索计划。
+3. 浏览器扩展、MCP、公司官网或结构化文件向统一职位池写入岗位。
+4. 系统完成字段清洗、指纹去重、薪资归一化、行业分类和技能提取。
+5. 系统计算匹配分项、可信度、数据质量、风险和偏见提示。
+6. 用户搜索、筛选、查看详情、收藏或批量对比岗位。
+7. 用户将岗位转换为 JD，并生成定向简历和真实沟通话术。
+8. 用户在求职管道中管理投递、沟通、面试、Offer 和下一步动作。
+9. 用户针对岗位进行标准或压力面试训练。
+10. 系统把面试反馈、能力缺口和学习任务沉淀到知识库、能力图谱和求职记忆。
+
+## 4. 产品信息架构
+
+| 一级模块 | 核心职责 | 当前状态 |
+| --- | --- | --- |
+| 工作台 | 总览目标、岗位、投递、简历、训练和快捷入口 | 本地可用 |
+| 求职 Agent | 自然语言目标、搜索计划、本地运行、推荐问答、求职记忆 | 本地可用 |
+| 岗位工作台 | 数据源、职位池、筛选、对比、详情、运行日志 | 本地可用 |
+| 岗位洞察 | 地区、行业、技能、薪资、来源和新增趋势 | 本地可用 |
+| 公司关注 | 公司官网、招聘时间线、岗位新增/变更监控 | 框架可用 |
+| 职业档案 | 个人方向、学历、经验、技能和项目证据 | 本地可用 |
+| 知识库 | 技术、项目、故障、问题、回答和复习材料 | 本地可用 |
+| JD 中心 | 岗位要求拆解、证据匹配和准备任务 | 本地可用 |
+| 求职管道 | 收藏、准备、投递、沟通、面试、Offer 和归档 | 本地可用 |
+| 简历工坊 | 岗位定向简历、版本管理和匹配评分 | 本地可用 |
+| 能力图谱 | 已验证能力、相关经验、缺口、分项评分和补强路线 | 本地可用 |
+| 求职日程 | 截止时间、下一步动作和面试节点 | 本地可用 |
+| 面试训练 | 中文/英文、标准/压力模式、回答诊断和追问 | 本地可用 |
+| 训练报告 | 训练分数、风险、改进建议和复盘 | 本地可用 |
+| 数据中心 | 数据质量、标准化输出、报告和推送框架 | 本地可用 |
+| AI 助手 | 本地建议和已配置 Provider 的 AI 能力入口 | 部分可用 |
+| Obsidian 集成 | Vault 连接、初始预览、单向导出、稳定 ID 和冲突保护 | Phase 1 可用 |
+| 设置 | Provider、Obsidian、诊断、备份、导出和本地路径 | 本地可用 |
+
+## 5. 核心功能模块说明
+
+### 5.1 工作台
+
+**目标：** 让用户进入软件后立即知道当前求职状态和下一步动作。
+
+**当前功能：**
+
+- 展示当前目标岗位和训练平均分。
+- 展示知识、项目、JD、投递、简历、岗位、Agent 计划和关注公司数量。
+- 提供求职 Agent、公司雷达、能力图谱和数据中心快捷入口。
+- 在空工作区中提供演示数据，便于快速验收完整界面。
+
+### 5.2 求职 Agent
+
+**目标：** 将一句自然语言求职目标转换为明确、可修改、可重复运行的计划。
+
+**输入：** 城市、岗位方向、薪资范围、平台、岗位类型、排除项、远程偏好、硬性条件和软偏好。
+
+**当前功能：**
+
+- 自动识别城市、关键词、薪资上下限、岗位类型和排除条件。
+- 保存搜索计划并在本地统一职位池执行。
+- 输出读取档案、生成计划、查询职位池、排序审计和下一步动作等执行步骤。
+- 展示本地推荐岗位，并直接进入定向简历或面试训练。
+- 支持围绕本次结果询问“为什么推荐”“优先投哪个”“下一步怎么做”。
+- 保存偏好、真实经历、岗位反馈、求职决定和备注等长期记忆。
+- 根据用户当前状态提供克制的行动建议，降低一次处理过多岗位造成的压力。
+
+**后续增强：** 接入真实多平台搜索、AI Top-N 精排、运行缓存和搜索报告文件。
+
+### 5.3 岗位工作台
+
+**目标：** 统一接收不同来源的岗位，完成标准化、过滤、评估和下游转化。
+
+**当前功能：**
+
+- 本机浏览器扩展 Bridge 和同步令牌。
+- 浏览器扩展、猎聘 MCP、BOSS MCP、公司官网、聚合 API 和文件导入连接器注册表。
+- 职位搜索、来源筛选、行业筛选、状态筛选和保存的筛选规则。
+- 最多四个岗位横向对比。
+- 岗位详情、完整 JD、标准字段、技能要求和原始链接。
+- 综合匹配、七维匹配、可信度、数据质量、风险和偏见审计。
+- 一键进入求职管道、定向简历和面试训练。
+- 采集批次与连接器验证日志。
+
+### 5.4 岗位标准化与智能分析
+
+统一职位模型当前包含：
+
+- 来源站点、来源名称、原始链接、外部 ID 和指纹。
+- 岗位名称、公司、地点、薪资、JD 和发布时间。
+- 行业、用工类型、学历、经验、技能和远程标记。
+- 最低/最高月薪 K 值。
+- 综合匹配分和方向、技能、经验、学历、地点、薪资、时效七个分项。
+- 推荐理由、可信度、风险标记、偏见标记和数据质量。
+- 新增、活跃、变更、关闭等生命周期状态。
+- 已出现次数、首次抓取、最后出现和下游 JD 关联。
+
+### 5.5 公司关注
+
+**目标：** 追踪目标公司官网中变化较快的岗位机会。
+
+**当前功能：**
+
+- 新增、编辑、暂停和恢复关注公司。
+- 管理公司名称、行业、招聘官网、优先级、招聘类型、标签和备注。
+- 记录在招、新增和变更岗位数量。
+- 设置预计招聘时间，形成校招/社招时间线。
+- 内置互联网、AI、硬件、国央企和电信等招聘官网入口。
+- 验证公司官网监控契约，但当前不会发起外部抓取请求。
+
+### 5.6 职业档案、知识库与 JD 中心
+
+- 职业档案保存当前岗位、年限、学历、目标岗位和技能等级。
+- 项目经历保存背景、目标、架构、职责、行动、难点、结果和技术栈。
+- 知识库保存技术知识、项目材料、故障案例、问题、回答、JD 和笔记。
+- JD 中心把岗位原文拆成要求、优先级、证据状态和准备任务。
+- 文档导入支持本地文本提取，并可在用户主动选择时调用 AI 图片识别。
+
+### 5.7 简历工坊与沟通材料
+
+- 每个岗位可以建立独立简历版本。
+- 简历版本保存求职标题、摘要、亮点、项目、技能、关键词、匹配分和版本号。
+- 简历内容来自已选择的项目和技能证据。
+- 沟通话术使用岗位名称、公司、当前职业方向和已命中技能生成。
+- 系统明确标记当前为人工投递，不会自动向招聘平台发送。
+
+### 5.8 能力图谱
+
+- 从职业档案技能、项目技术栈和职位池需求生成能力节点。
+- 将能力分为已验证、相关经验和岗位缺口。
+- 展示能力对应的项目证据和职位需求次数。
+- 选择岗位后展示七维匹配分项。
+- 展示岗位字段质量、可信度、风险和偏见表述。
+- 根据缺口生成本周、两周内和面试前的补强动作。
+
+### 5.9 求职管道与日程
+
+- 阶段包括收藏、准备、已投递、沟通、面试、Offer、未通过和放弃。
+- 保存岗位、来源、地点、薪资、优先级、截止时间、下一步动作和备注。
+- 每次状态变化写入状态历史。
+- 支持真实沟通话术草稿和人工/辅助投递模式。
+- 日程页按逾期、今天、近期和未安排展示动作。
+
+### 5.10 面试训练与报告
+
+- 支持中文和全英文训练。
+- 支持标准模式和动态压力追问模式。
+- 问题类型包括项目、技术、行为、HR 和压力面。
+- 评分维度包括准确性、结构、个人贡献、岗位匹配、自然度和真实性。
+- 生成证据缺口、逻辑问题、面试官追问、STAR 参考和简历修改建议。
+- 完成训练后沉淀回答到知识库，并形成训练报告。
+
+### 5.11 数据中心与推送
+
+- 展示采集、清洗、标准化、质量审计和分发五阶段流水线。
+- 统计公司、地点、薪资、JD、学历、经验、技能和发布时间完整度。
+- 展示数据源岗位数量、平均质量和失败任务。
+- 输出标准化 CSV、完整 JSON 和 Markdown 职位分布报告。
+- 推送通道包括应用内、Webhook、邮件、飞书、企业微信、钉钉和 Telegram。
+- 当前只有应用内规则可直接使用，外部通道只建立配置框架。
+
+### 5.12 Obsidian 知识资产集成
+
+- 支持选择现有 Vault，或创建 Interview OS 专用 Vault。
+- 支持配置项目、故障案例、技术知识、面试问题、训练回答、JD、学习计划、公司研究、求职复盘和简历元数据的目录映射。
+- 导出使用标准 Markdown、YAML frontmatter、WikiLinks 和稳定的 `interview_os_id`。
+- 支持初始同步预览、手动全量导出和知识编辑器中的“保存并同步”。
+- 本地工作区仍是权威数据源；Vault 不可用时不影响本地保存。
+- 不读取或修改 `.obsidian`，不静默传播删除。
+- 当外部 Markdown 被修改时使用内容哈希阻止覆盖，并记录同步冲突。
+- Phase 2 的 Markdown 导入、增量扫描、重命名识别和 Phase 3 双向同步尚未实现。
+
+## 6. 数据与领域架构
+
+### 6.1 工作区根对象
+
+`WorkspaceState` 是本地数据源，当前主要聚合：
+
+- 职业资产：职业档案、项目、知识和 JD。
+- 岗位资产：同步岗位、数据源、运行记录、筛选/提醒规则和关注公司。
+- 求职执行：搜索计划、Agent 运行、求职记忆、投递机会、简历版本和训练会话。
+- 集成状态：Provider、本地设置、Obsidian 设置、同步索引、冲突记录和同步运行记录。
+
+### 6.2 关键关联关系
+
+- 同步岗位可以转换为 JD，并保存 `linkedJobId`。
+- 投递机会可以关联 JD。
+- 简历版本可以关联 JD。
+- 面试会话可以同时关联 JD 和项目。
+- 公司关注通过公司名称与职位池岗位建立统计关系。
+- 求职 Agent 运行记录保存计划 ID 和命中岗位 ID。
+- 能力图谱从档案、项目和职位池实时计算，不重复保存派生数据。
+- Obsidian 文件使用 `interview_os_id` 与本地实体关联，同步索引保存路径和内容哈希。
+
+### 6.3 本地持久化
+
+- 工作区使用原子写入，降低文件写入中断导致的数据损坏风险。
+- 当前工作区 schema 版本为 2；旧工作区缺少新数组、Obsidian 设置或同步字段时自动迁移并补默认值。
+- Provider 密钥与普通工作区数据分离；工作区支持本地备份和 Markdown 导出；Vault 使用同目录临时文件加原子替换，外部修改发生时拒绝覆盖。
+
+## 7. 连接器架构
+
+| 连接器 | 当前能力 | 当前状态 | 正式启用条件 |
+| --- | --- | --- | --- |
+| Chrome 可见岗位扩展 | 读取当前页面可见岗位并发送到本机 Bridge | 可运行 | 用户加载扩展并填写令牌 |
+| 猎聘官方 MCP | 搜索、推荐、详情 | 契约已预留 | 用户授权 Key、字段适配、频率控制 |
+| BOSS MCP | 搜索、详情、企业核验、沟通、简历发送 | 契约已预留 | 本地服务、登录态、回归测试、人工确认 |
+| 公司招聘官网 | 新增、变更、关闭岗位追踪 | 契约已预留 | 为目标公司实现适配器和定时调度 |
+| Google Jobs 聚合 API | 结构化聚合搜索 | 契约已预留 | 选择 API 服务、密钥和费用上限 |
+| CSV / JSON 导入 | 第三方数据进入统一职位池 | 数据契约已完成 | 增加文件选择、字段映射和导入预览 |
+| 外部推送 | Webhook、邮件和即时通讯工具 | 通道已预留 | 服务器、密钥管理、重试和审计 |
+| Obsidian Vault | 标准 Markdown 单向导出 | Phase 1 可运行 | Phase 2 增量导入与 Phase 3 双向同步需单独验收 |
+
+## 8. 系统技术架构
+
+### 8.1 客户端
+
+- Electron 桌面运行环境。
+- Vue 3 + TypeScript 渲染层。
+- Vue Router 页面导航。
+- Lucide 图标体系。
+- 统一浅色空间感 UI、固定字号层级和响应式布局。
+
+### 8.2 主进程服务
+
+- WorkspaceService：职业资产、岗位、简历、投递、Agent 和公司关注业务。
+- JobSyncService：本机 HTTP Bridge、令牌校验和岗位批次接收。
+- ObsidianVaultService：Vault 校验、路径安全、Markdown 序列化、同步索引和冲突保护。
+- ProviderService：OpenAI-compatible 和 Dify Provider。
+- DocumentImportService：PDF、Word、RTF、文本和图片导入。
+- AtomicWorkspaceRepository：原子持久化、备份和导出。
+
+### 8.3 IPC 边界
+
+- 渲染层不能直接访问文件系统和 Node.js。
+- 所有写操作通过预加载 API 和 IPC 进入主进程。
+- 输入统一经过验证和长度限制。
+- 外部链接由系统浏览器打开。
+
+## 9. 当前完成度
+
+### 9.1 已真实可用
+
+- 本地职业档案、项目、知识、JD、简历、投递、日程和训练。
+- 浏览器扩展本机 Bridge 与岗位批次写入。
+- 岗位标准化、去重、薪资解析、行业分类和技能提取。
+- 搜索筛选、岗位对比、详情审阅和生命周期状态。
+- 确定性匹配、可信度、质量、风险和偏见提示。
+- 求职 Agent 本地计划、运行、问答和记忆。
+- 公司关注和招聘官网目录。
+- 能力图谱与学习路线。
+- 数据质量、洞察和结构化报告复制输出。
+- 应用内提醒规则。
+- Obsidian 现有/专用 Vault 连接、同步预览、单向导出、稳定 ID、WikiLinks 和外部修改保护。
+
+### 9.2 框架已完成但尚未连接外部服务
+
+- 猎聘 MCP、BOSS MCP、Google Jobs API 和公司官网适配器。
+- 飞书、企业微信、钉钉、邮件、Telegram 和通用 Webhook。
+- 辅助投递执行器。
+- AI Top-N 精排、技能知识库 RAG 和 ATS 深度分析。
+- 薪资预测模型和地图分析。
+
+### 9.3 尚需增强
+
+- CSV / JSON 文件选择、字段映射、导入预览和错误行报告。
+- 公司官网真实新增/变更/关闭检测。
+- 岗位专项面试准备包和七天准备计划。
+- 求职 Agent 真实多源调度、缓存、失败重试和报告归档。
+- Obsidian Markdown 导入、增量扫描、文件监听、双向同步和冲突处理界面。
+- Windows v0.5.0 安装版、便携版与 `obsidian://` 系统注册验证。
+
+## 10. 安全、隐私与风控
+
+- 浏览器扩展只读取用户当前打开页面中的可见职位内容。
+- 不读取密码，不导出 Cookie，不绕过验证码。
+- 本机 Bridge 只监听 `127.0.0.1`，使用工作区令牌鉴权。
+- 每批岗位数量和请求体大小受限。
+- 自动沟通和自动投递默认关闭。
+- 未来投递执行器必须具备日限额、随机间隔、暂停、验证码检测、审计和人工确认。
+- 外部 Provider 只在用户主动触发时接收所选内容。
+- Obsidian 集成不读取或修改 `.obsidian`，目录映射经过路径穿越校验。
+- 同步遇到外部修改时创建冲突记录，不覆盖用户在 Obsidian 中的内容。
+
+## 11. 是否需要服务器与域名
+
+### 11.1 当前阶段
+
+当前产品框架、本地数据、浏览器扩展和人工工作流不需要服务器或域名。
+
+### 11.2 需要服务器的功能
+
+- 无人值守定时抓取公司官网和公共 API。
+- 多设备同步。
+- Webhook、邮件、飞书、企业微信等外部推送。
+- 集中任务队列、失败重试和运行监控。
+- 云端 AI 精排、Embedding 和 RAG 服务。
+
+### 11.3 推荐部署边界
+
+- 招聘平台登录态和浏览器 Profile 保留在本机。
+- 服务器负责公开数据源、调度、标准化、通知和审计。
+- 域名用于 HTTPS API，例如 `api.example.com`。
+- 不建议把招聘平台 Cookie 或账号凭据直接上传服务器。
+
+## 12. 已知问题
+
+- v0.5.0 Windows 安装版和便携版尚未重新打包验证，仓库中已有发布文件仍属于 v0.4.0。
+- `obsidian://` 打开笔记需要本机安装 Obsidian 并完成 URI 协议注册，当前自动化环境未验证该系统级行为。
+- Obsidian 当前只支持 Interview OS 到 Vault 的单向导出，不支持从 Vault 导入或双向同步。
+- 外部招聘连接器尚未进行真实授权、限频、异常和页面变更测试。
+- 部分匹配维度缺少用户期望城市和期望薪资档案，因此当前使用中性分值。
+- 数据中心的 CSV、JSON 和报告当前复制到剪贴板，尚未接入系统保存对话框。
+
+## 13. 分阶段路线图
+
+### 阶段 A：完成本地产品闭环
+
+- 完成 v0.5.0 Windows 安装版和便携版验证。
+- 验证安装 Obsidian 后的 URI 打开行为。
+- 完成 CSV / JSON 导入和文件导出。
+- 完善岗位详情、公司详情和 Agent 运行报告。
+- 增加用户期望城市、薪资和岗位类型档案。
+- 实现 Obsidian Phase 2 增量扫描、Frontmatter 校验和 Markdown 导入。
+
+### 阶段 B：接入低风险真实数据源
+
+- 猎聘官方 MCP。
+- 公司招聘官网监控。
+- 公开 JSON API 和结构化文件批量导入。
+- 定时运行、失败重试和数据质量报警。
+
+### 阶段 C：接入本地登录态平台
+
+- BOSS 搜索和详情连接器。
+- 登录状态检查和手动恢复。
+- 页面选择器回归测试。
+- 操作节奏、日限额和验证码暂停。
+
+### 阶段 D：完善智能求职能力
+
+- AI Top-N 岗位精排。
+- ATS 简历分析和真实性自检。
+- 岗位专项面试题包与七天准备计划。
+- 技能知识库、Embedding、RAG 和学习路线。
+- 薪资预测和职业方向趋势分析。
+
+### 阶段 E：辅助投递与外部推送
+
+- 飞书、企业微信、钉钉、邮件和 Telegram。
+- 用户确认后的单岗位辅助投递。
+- 投递审计、限额、暂停、失败恢复和状态回写。
+
+## 14. 当前验收基线
+
+- 15 个测试文件、55 个单元与集成测试通过。
+- Vue 和 TypeScript 类型检查通过。
+- Electron 主进程和前端生产构建通过。
+- Electron 主流程和 15 个功能模块字体一致性 E2E 通过；打包应用测试按当前配置跳过。
+- `git diff --check` 通过。
+- 旧工作区迁移逻辑已覆盖新增数组、岗位智能字段和 schema v2 Obsidian 字段。
+- Obsidian Phase 1 的稳定 ID、Markdown、原子写入、冲突保护、目录穿越拒绝和设置持久化已覆盖自动化测试。
+- 所有可见模块文字不小于 11px，统一使用语义化字号变量。
+- 真实外部抓取、推送和投递没有被默认启用。
+
+## 15. 相关文档
+
+- `docs/job-sync-architecture.md`：岗位同步与连接器安全边界。
+- `docs/reference-project-integration.md`：全部参考项目与 Interview OS 模块的逐项映射。
+- `browser-extension/`：Chrome MV3 可见岗位同步扩展。
+- `src/shared/domain.ts`：领域模型和工作区根对象。
+- `src/shared/job-intelligence.ts`：岗位标准化、匹配、质量和风险分析。
+- `src/shared/career-agent-engine.ts`：求职目标解析、职位池运行、能力图谱和本地问答。
+- `docs/integrations/OBSIDIAN_INTEGRATION_DESIGN.md`：Obsidian 集成设计与阶段边界。
+- `docs/integrations/OBSIDIAN_MARKDOWN_SCHEMA.md`：Markdown、Frontmatter、稳定 ID 和受管块规范。
+- `design-system/interview-os/MASTER.md`：界面颜色、字号、间距和组件设计规范。
+
+## 16. 产品阶段结论
+
+Interview OS 当前已经具备完整的一体化求职产品外形、本地业务闭环和可导出的知识资产层。下一阶段不应继续无序增加页面，而应围绕连接器和同步链路逐个完成真实验收：先完成 v0.5.0 打包与 Obsidian Phase 2，再接入稳定、低风险、结构化的招聘数据源，然后处理依赖本地登录态的平台，最后实现推送和辅助投递。所有新能力都应继续复用统一职位模型、稳定 ID、运行日志、冲突保护和人工确认边界。

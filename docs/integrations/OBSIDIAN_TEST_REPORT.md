@@ -18,9 +18,9 @@
 ## Current Result
 
 - Obsidian-specific tests: 11 passed.
-- Full unit suite: 53 passed across 14 test files.
+- Full unit suite: 55 passed across 15 test files.
 - TypeScript and Vue type checking: passed.
-- Electron E2E: passed for dedicated Vault creation, preview, export, index persistence, disconnect, and local-data retention.
+- Electron E2E: passed for dedicated Vault creation, preview, export, index persistence, disconnect, and local-data retention. System-level URI and packaged-app checks remain pending.
 
 ## Pending Verification
 
