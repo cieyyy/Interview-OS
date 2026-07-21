@@ -13,6 +13,7 @@ playwright-report/
 .env.*
 !.env.example
 artifacts/
+.codex/
 
 # Local workspace data and credentials
 data/
@@ -26,4 +27,3 @@ secure/
 .vscode/
 .DS_Store
 Thumbs.db
-

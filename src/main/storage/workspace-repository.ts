@@ -136,6 +136,36 @@ export class AtomicWorkspaceRepository {
       await writeMarkdown('jobs', `${job.company}-${job.title}`, `# ${job.title}\n\n## 原始 JD\n\n${job.rawText}\n\n## 要求与证据\n\n${requirements}\n`);
     }
 
+    for (const application of this.state.applications) {
+      const history = application.statusHistory
+        .map((item) => `- ${item.occurredAt}｜${item.status}｜${item.note}`)
+        .join('\n');
+      const body = `${markdownFrontmatter({ id: application.id, type: 'application', status: application.status, priority: application.priority })}\n` +
+        `# ${application.company ? `${application.company} · ` : ''}${application.title}\n\n` +
+        `## 机会信息\n\n- 来源：${application.source}\n- 地点：${application.location}\n- 薪资：${application.salaryRange}\n- 链接：${application.sourceUrl}\n\n` +
+        `## 下一步\n\n${application.nextAction || '未设置'}\n\n## 备注\n\n${application.notes}\n\n## 状态历史\n\n${history}\n`;
+      await writeMarkdown('applications', `${application.company}-${application.title}`, body);
+    }
+
+    for (const synced of this.state.syncedJobs) {
+      const body = `${markdownFrontmatter({ id: synced.id, type: 'synced-job', source: synced.sourceSite, status: synced.status, seenCount: synced.seenCount })}\n` +
+        `# ${synced.company ? `${synced.company} · ` : ''}${synced.title}\n\n` +
+        `- 来源：${synced.sourceName}\n- 地点：${synced.location}\n- 薪资：${synced.salaryRange}\n- 原职位：${synced.sourceUrl}\n- 首次发现：${synced.capturedAt}\n- 最后发现：${synced.lastSeenAt}\n\n` +
+        `## 职位内容\n\n${synced.description}\n`;
+      await writeMarkdown('synced-jobs', `${synced.company}-${synced.title}`, body);
+    }
+
+    for (const resume of this.state.resumeVariants) {
+      const projects = this.state.projects.filter((item) => resume.projectIds.includes(item.id));
+      const skills = this.state.profile.skills.filter((item) => resume.skillIds.includes(item.id));
+      const body = `${markdownFrontmatter({ id: resume.id, type: 'resume', status: resume.status, version: resume.version, matchScore: resume.matchScore })}\n` +
+        `# ${resume.name}\n\n## 求职标题\n\n${resume.headline}\n\n## 个人摘要\n\n${resume.summary}\n\n` +
+        `## 核心技能\n\n${skills.map((item) => `- ${item.name}｜${item.level}`).join('\n')}\n\n` +
+        `## 亮点\n\n${resume.highlights.map((item) => `- ${item}`).join('\n')}\n\n` +
+        `## 项目经历\n\n${projects.map((item) => `### ${item.name}\n\n${item.responsibilities}\n\n${item.actions}\n\n${item.results}`).join('\n\n')}\n`;
+      await writeMarkdown('resumes', resume.name, body);
+    }
+
     for (const session of this.state.trainingSessions) {
       const rows = session.questions.map((question) => {
         const attempts = session.attempts.filter((attempt) => attempt.questionId === question.id);
@@ -187,4 +217,3 @@ export class AtomicWorkspaceRepository {
     return scheduled;
   }
 }
-

@@ -1,14 +1,29 @@
 import type {
+  CareerMemoryInput,
+  CareerSearchPlanInput,
+  CompanyWatchInput,
+  JobAlertRuleInput,
+  JobApplicationInput,
+  JobFilterPresetInput,
+  JobSyncBatchInput,
   JobInput,
+  JobSourceCapability,
+  JobSourceInput,
   KnowledgeInput,
+  ObsidianEntityType,
+  ObsidianIntegrationSettings,
+  ObsidianIntegrationSettingsInput,
   ProjectInput,
   ProviderInput,
+  ResumeVariantInput,
   TrainingAnswerInput,
   TrainingCoachResult,
   TrainingFinalizeInput,
   TrainingStartInput,
   WorkspaceState
 } from './domain';
+import { createDefaultJobSources, createDefaultObsidianSettings } from './domain';
+import { analyzeSyncedJob } from './job-intelligence';
 
 export class ValidationError extends Error {
   constructor(message: string) {
@@ -52,7 +67,10 @@ export function validateHttpUrl(value: string, field = 'URL'): string {
 }
 
 export function validateKnowledgeInput(input: KnowledgeInput): KnowledgeInput {
-  const allowedTypes = ['technical', 'project', 'incident', 'question', 'answer', 'jd', 'note'];
+  const allowedTypes = [
+    'technical', 'project', 'incident', 'question', 'answer', 'jd',
+    'learning-plan', 'company-research', 'retrospective', 'note'
+  ];
   const allowedStatus = ['draft', 'learning', 'mastered', 'review'];
   if (!input || !allowedTypes.includes(input.type)) throw new ValidationError('知识类型无效');
   if (input.status && !allowedStatus.includes(input.status)) throw new ValidationError('知识状态无效');
@@ -96,6 +114,196 @@ export function validateJobInput(input: JobInput): JobInput {
     title: cleanText(input.title, '岗位名称', 160),
     company: cleanText(input.company ?? '', '公司名称', 160, false),
     rawText: cleanText(input.rawText, 'JD 原文', 100_000)
+  };
+}
+
+function cleanOptionalDate(value: unknown, field: string): string | undefined {
+  if (value == null || value === '') return undefined;
+  const cleaned = cleanText(value, field, 80);
+  const parsed = new Date(cleaned);
+  if (Number.isNaN(parsed.getTime())) throw new ValidationError(`${field}格式无效`);
+  return parsed.toISOString();
+}
+
+export function validateJobApplicationInput(input: JobApplicationInput): JobApplicationInput {
+  const statuses = ['saved', 'preparing', 'applied', 'screening', 'interview', 'offer', 'rejected', 'withdrawn'];
+  const priorities = ['high', 'medium', 'low'];
+  const submissionModes = ['manual', 'assisted'];
+  if (!input || typeof input !== 'object') throw new ValidationError('求职机会数据不能为空');
+  if (input.status && !statuses.includes(input.status)) throw new ValidationError('投递状态无效');
+  if (input.priority && !priorities.includes(input.priority)) throw new ValidationError('机会优先级无效');
+  if (input.submissionMode && !submissionModes.includes(input.submissionMode)) throw new ValidationError('投递方式无效');
+  const sourceUrl = input.sourceUrl ? validateHttpUrl(input.sourceUrl, '职位链接') : '';
+  return {
+    ...input,
+    id: input.id ? cleanText(input.id, 'ID', 80) : undefined,
+    jobId: input.jobId ? cleanText(input.jobId, 'JD ID', 80) : undefined,
+    company: cleanText(input.company ?? '', '公司名称', 160, false),
+    title: cleanText(input.title ?? '', '岗位名称', 160, false),
+    source: cleanText(input.source ?? '', '职位来源', 120, false),
+    sourceUrl,
+    location: cleanText(input.location ?? '', '工作地点', 120, false),
+    salaryRange: cleanText(input.salaryRange ?? '', '薪资范围', 120, false),
+    status: input.status ?? 'saved',
+    priority: input.priority ?? 'medium',
+    deadline: cleanOptionalDate(input.deadline, '截止时间'),
+    appliedAt: cleanOptionalDate(input.appliedAt, '投递时间'),
+    nextAction: cleanText(input.nextAction ?? '', '下一步动作', 500, false),
+    nextActionAt: cleanOptionalDate(input.nextActionAt, '下一步时间'),
+    notes: cleanText(input.notes ?? '', '求职备注', 20_000, false),
+    greetingDraft: cleanText(input.greetingDraft ?? '', '沟通话术', 5_000, false),
+    submissionMode: input.submissionMode ?? 'manual'
+  };
+}
+
+export function validateResumeVariantInput(input: ResumeVariantInput): ResumeVariantInput {
+  if (!input || typeof input !== 'object') throw new ValidationError('简历版本数据不能为空');
+  if (input.status && !['draft', 'ready', 'submitted'].includes(input.status)) throw new ValidationError('简历状态无效');
+  return {
+    ...input,
+    id: input.id ? cleanText(input.id, 'ID', 80) : undefined,
+    jobId: input.jobId ? cleanText(input.jobId, 'JD ID', 80) : undefined,
+    name: cleanText(input.name, '简历版本名称', 160),
+    headline: cleanText(input.headline, '求职标题', 240),
+    summary: cleanText(input.summary, '个人摘要', 10_000),
+    highlights: cleanStringList(input.highlights, '简历亮点', 20),
+    projectIds: cleanTags(input.projectIds),
+    skillIds: cleanTags(input.skillIds),
+    status: input.status ?? 'draft'
+  };
+}
+
+export function validateJobSyncBatchInput(input: JobSyncBatchInput): JobSyncBatchInput {
+  if (!input || typeof input !== 'object') throw new ValidationError('岗位同步数据不能为空');
+  if (!Array.isArray(input.jobs)) throw new ValidationError('同步岗位必须是数组');
+  return {
+    token: cleanText(input.token, '同步令牌', 120),
+    sourceSite: cleanText(input.sourceSite, '来源站点', 80),
+    sourceName: cleanText(input.sourceName ?? input.sourceSite, '来源名称', 120),
+    pageUrl: validateHttpUrl(input.pageUrl, '来源页面'),
+    jobs: input.jobs.slice(0, 100).map((item) => ({
+      externalId: item.externalId ? cleanText(item.externalId, '外部职位 ID', 240, false) : '',
+      sourceUrl: validateHttpUrl(item.sourceUrl, '职位链接'),
+      title: cleanText(item.title, '岗位名称', 240),
+      company: cleanText(item.company ?? '', '公司名称', 200, false),
+      location: cleanText(item.location ?? '', '工作地点', 160, false),
+      salaryRange: cleanText(item.salaryRange ?? '', '薪资范围', 160, false),
+      description: cleanText(item.description ?? '', '职位描述', 100_000, false),
+      postedAt: cleanOptionalDate(item.postedAt, '发布时间')
+    }))
+  };
+}
+
+export function validateJobSourceInput(input: JobSourceInput): JobSourceInput {
+  const connectorTypes = ['browser-extension', 'mcp', 'api', 'company-careers', 'scraper', 'import'];
+  const statuses = ['ready', 'configured', 'planned', 'error'];
+  const allowedCapabilities: JobSourceCapability[] = ['search', 'detail', 'change-tracking', 'company-check', 'apply-assist', 'push'];
+  if (!input || !connectorTypes.includes(input.connectorType)) throw new ValidationError('连接器类型无效');
+  if (input.status && !statuses.includes(input.status)) throw new ValidationError('数据源状态无效');
+  const capabilities = (input.capabilities ?? []).filter((item): item is JobSourceCapability => allowedCapabilities.includes(item));
+  return {
+    ...input,
+    id: input.id ? cleanText(input.id, '数据源 ID', 80) : undefined,
+    name: cleanText(input.name, '数据源名称', 120),
+    platform: cleanText(input.platform, '平台名称', 160),
+    endpoint: input.endpoint ? validateHttpUrl(input.endpoint, '连接器地址') : '',
+    intervalMinutes: Math.max(0, Math.min(10_080, Number(input.intervalMinutes ?? 30))),
+    capabilities: [...new Set(capabilities)],
+    notes: cleanText(input.notes ?? '', '数据源说明', 2_000, false),
+    enabled: Boolean(input.enabled),
+    status: input.status ?? 'planned'
+  };
+}
+
+export function validateJobFilterPresetInput(input: JobFilterPresetInput): JobFilterPresetInput {
+  const industries = ['technology', 'operations', 'product', 'design', 'sales', 'marketing', 'finance', 'human-resources', 'legal', 'healthcare', 'education', 'manufacturing', 'general'];
+  if (!input || typeof input !== 'object') throw new ValidationError('筛选规则不能为空');
+  return {
+    ...input,
+    id: input.id ? cleanText(input.id, '筛选规则 ID', 80) : undefined,
+    name: cleanText(input.name, '筛选规则名称', 120),
+    includeKeywords: cleanStringList(input.includeKeywords, '包含关键词', 30),
+    excludeKeywords: cleanStringList(input.excludeKeywords, '排除关键词', 30),
+    cities: cleanStringList(input.cities, '城市', 30),
+    industries: (input.industries ?? []).filter((item) => industries.includes(item)),
+    sources: cleanStringList(input.sources, '来源', 30),
+    minSalaryK: input.minSalaryK == null ? undefined : Math.max(0, Math.min(1_000, Number(input.minSalaryK))),
+    minMatchScore: Math.max(0, Math.min(100, Number(input.minMatchScore ?? 60))),
+    minTrustScore: Math.max(0, Math.min(100, Number(input.minTrustScore ?? 70))),
+    remoteOnly: Boolean(input.remoteOnly),
+    freshWithinDays: Math.max(0, Math.min(365, Number(input.freshWithinDays ?? 30)))
+  };
+}
+
+export function validateJobAlertRuleInput(input: JobAlertRuleInput): JobAlertRuleInput {
+  const channels = ['in-app', 'webhook', 'email', 'feishu', 'wecom', 'dingtalk', 'telegram'];
+  if (!input || typeof input !== 'object') throw new ValidationError('提醒规则不能为空');
+  if (input.channel && !channels.includes(input.channel)) throw new ValidationError('提醒渠道无效');
+  const target = cleanText(input.target ?? '', '提醒目标', 2_000, false);
+  if (input.channel === 'webhook' && target) validateHttpUrl(target, 'Webhook 地址');
+  return {
+    ...input,
+    id: input.id ? cleanText(input.id, '提醒规则 ID', 80) : undefined,
+    name: cleanText(input.name, '提醒规则名称', 120),
+    presetId: input.presetId ? cleanText(input.presetId, '筛选规则 ID', 80) : undefined,
+    channel: input.channel ?? 'in-app',
+    enabled: Boolean(input.enabled),
+    threshold: Math.max(1, Math.min(100, Number(input.threshold ?? 1))),
+    target
+  };
+}
+
+export function validateCareerSearchPlanInput(input: CareerSearchPlanInput): CareerSearchPlanInput {
+  if (!input || typeof input !== 'object') throw new ValidationError('求职搜索计划不能为空');
+  const remotePreference = input.remotePreference ?? 'any';
+  if (!['required', 'preferred', 'any'].includes(remotePreference)) throw new ValidationError('远程偏好无效');
+  return {
+    ...input,
+    id: input.id ? cleanText(input.id, '搜索计划 ID', 80) : undefined,
+    title: cleanText(input.title ?? '', '搜索计划名称', 160, false),
+    goal: cleanText(input.goal, '求职目标', 5_000),
+    cities: cleanStringList(input.cities, '目标城市', 30),
+    keywords: cleanStringList(input.keywords, '搜索关键词', 50),
+    excludeKeywords: cleanStringList(input.excludeKeywords, '排除关键词', 50),
+    platforms: cleanStringList(input.platforms, '招聘平台', 30),
+    jobTypes: cleanStringList(input.jobTypes, '岗位类型', 20),
+    salaryMinK: input.salaryMinK == null ? undefined : Math.max(0, Math.min(1_000, Number(input.salaryMinK))),
+    salaryMaxK: input.salaryMaxK == null ? undefined : Math.max(0, Math.min(1_000, Number(input.salaryMaxK))),
+    remotePreference,
+    hardConstraints: cleanStringList(input.hardConstraints, '硬性条件', 30),
+    softPreferences: cleanStringList(input.softPreferences, '偏好条件', 30)
+  };
+}
+
+export function validateCareerMemoryInput(input: CareerMemoryInput): CareerMemoryInput {
+  const types = ['profile', 'preference', 'feedback', 'decision', 'note'];
+  if (!input || typeof input !== 'object') throw new ValidationError('求职记忆不能为空');
+  if (input.type && !types.includes(input.type)) throw new ValidationError('求职记忆类型无效');
+  return {
+    ...input,
+    id: input.id ? cleanText(input.id, '记忆 ID', 80) : undefined,
+    type: input.type ?? 'note',
+    content: cleanText(input.content, '记忆内容', 5_000),
+    tags: cleanTags(input.tags)
+  };
+}
+
+export function validateCompanyWatchInput(input: CompanyWatchInput): CompanyWatchInput {
+  if (!input || typeof input !== 'object') throw new ValidationError('公司关注信息不能为空');
+  if (input.priority && !['focus', 'normal', 'backup'].includes(input.priority)) throw new ValidationError('公司优先级无效');
+  if (input.status && !['watching', 'paused'].includes(input.status)) throw new ValidationError('公司关注状态无效');
+  return {
+    ...input,
+    id: input.id ? cleanText(input.id, '公司 ID', 80) : undefined,
+    name: cleanText(input.name, '公司名称', 160),
+    industry: cleanText(input.industry ?? '', '公司行业', 120, false),
+    careerUrl: input.careerUrl ? validateHttpUrl(input.careerUrl, '招聘官网') : '',
+    priority: input.priority ?? 'normal',
+    status: input.status ?? 'watching',
+    recruitmentType: cleanText(input.recruitmentType ?? '', '招聘类型', 80, false),
+    tags: cleanTags(input.tags),
+    notes: cleanText(input.notes ?? '', '公司备注', 5_000, false),
+    nextRecruitmentAt: cleanOptionalDate(input.nextRecruitmentAt, '招聘时间')
   };
 }
 
@@ -182,16 +390,130 @@ export function validateProviderInput(input: ProviderInput): ProviderInput {
   };
 }
 
-export function validateWorkspaceState(value: unknown): WorkspaceState {
+export function cleanVaultRelativePath(value: unknown, field: string): string {
+  const cleaned = cleanText(value, field, 240).replace(/\\/g, '/').replace(/\/+$/g, '');
+  if (/^(?:[a-zA-Z]:|\/)/.test(cleaned)) throw new ValidationError(`${field}必须是 Vault 内的相对路径`);
+  const segments = cleaned.split('/').filter(Boolean);
+  if (!segments.length || segments.some((segment) => segment === '..' || segment === '.' || segment === '.obsidian')) {
+    throw new ValidationError(`${field}包含不允许的目录`);
+  }
+  return segments.join('/');
+}
+
+export function validateObsidianSettingsInput(
+  input: ObsidianIntegrationSettingsInput,
+  current: ObsidianIntegrationSettings = createDefaultObsidianSettings()
+): ObsidianIntegrationSettings {
+  if (!input || typeof input !== 'object') throw new ValidationError('Obsidian 配置不能为空');
+  const modes = ['disabled', 'existing-vault', 'dedicated-vault'];
+  const directions = ['bidirectional', 'export-only', 'import-only'];
+  const allowedTypes: ObsidianEntityType[] = [
+    'project', 'incident', 'technical-knowledge', 'interview-question', 'interview-answer',
+    'jd-analysis', 'learning-plan', 'company-research', 'retrospective', 'resume-metadata'
+  ];
+  const mode = input.mode ?? current.mode;
+  const syncDirection = input.syncDirection ?? current.syncDirection;
+  if (!modes.includes(mode)) throw new ValidationError('Obsidian 集成模式无效');
+  if (!directions.includes(syncDirection)) throw new ValidationError('Obsidian 同步方向无效');
+  const defaults = createDefaultObsidianSettings();
+  const folderMapping = { ...defaults.folderMapping, ...current.folderMapping, ...input.folderMapping };
+  for (const [key, value] of Object.entries(folderMapping)) {
+    folderMapping[key as keyof typeof folderMapping] = cleanVaultRelativePath(value, `目录映射 ${key}`);
+  }
+  const enabledEntityTypes = [...new Set(input.enabledEntityTypes ?? current.enabledEntityTypes)]
+    .filter((value): value is ObsidianEntityType => allowedTypes.includes(value));
+  return {
+    enabled: Boolean(input.enabled ?? current.enabled),
+    vaultPath: input.vaultPath === undefined
+      ? current.vaultPath
+      : input.vaultPath == null || input.vaultPath === '' ? null : cleanText(input.vaultPath, 'Vault 路径', 2_000),
+    workspaceSubdirectory: cleanVaultRelativePath(
+      input.workspaceSubdirectory ?? current.workspaceSubdirectory,
+      '工作子目录'
+    ),
+    mode,
+    syncDirection,
+    autoSync: Boolean(input.autoSync ?? current.autoSync),
+    scanOnStartup: Boolean(input.scanOnStartup ?? current.scanOnStartup),
+    syncIntervalSeconds: Math.max(30, Math.min(86_400, Number(input.syncIntervalSeconds ?? current.syncIntervalSeconds))),
+    attachmentDirectory: cleanVaultRelativePath(
+      input.attachmentDirectory ?? current.attachmentDirectory,
+      '附件目录'
+    ),
+    folderMapping,
+    enabledEntityTypes,
+    syncFullResume: Boolean(input.syncFullResume ?? current.syncFullResume)
+  };
+}
+
+export function migrateWorkspaceState(value: unknown): WorkspaceState {
   if (!value || typeof value !== 'object') throw new ValidationError('工作区状态格式错误');
-  const state = value as Partial<WorkspaceState>;
-  if (state.schemaVersion !== 1) throw new ValidationError('不支持的工作区版本');
+  const state = value as Record<string, unknown>;
+  const version = Number(state.schemaVersion ?? 1);
+  if (![1, 2].includes(version)) throw new ValidationError('不支持的工作区版本');
+  const settings = state.settings as Record<string, unknown> | undefined;
+  if (settings) {
+    const currentObsidian = settings.obsidian as ObsidianIntegrationSettings | undefined;
+    settings.obsidian = validateObsidianSettingsInput(currentObsidian ?? {}, createDefaultObsidianSettings());
+  }
+  state.obsidianSyncIndex = Array.isArray(state.obsidianSyncIndex) ? state.obsidianSyncIndex : [];
+  state.obsidianSyncConflicts = Array.isArray(state.obsidianSyncConflicts) ? state.obsidianSyncConflicts : [];
+  state.obsidianSyncRuns = Array.isArray(state.obsidianSyncRuns) ? state.obsidianSyncRuns : [];
+  state.schemaVersion = 2;
+  return state as unknown as WorkspaceState;
+}
+
+export function validateWorkspaceState(value: unknown): WorkspaceState {
+  const state = migrateWorkspaceState(value) as Partial<WorkspaceState>;
+  if (state.schemaVersion !== 2) throw new ValidationError('不支持的工作区版本');
   if (!state.profile || !Array.isArray(state.projects) || !Array.isArray(state.knowledge)) {
     throw new ValidationError('工作区缺少必要数据');
   }
   if (!Array.isArray(state.jobs) || !Array.isArray(state.trainingSessions) || !state.settings) {
     throw new ValidationError('工作区数据不完整');
   }
+  if (!Array.isArray(state.applications)) state.applications = [];
+  for (const application of state.applications) {
+    application.greetingDraft ??= '';
+    application.submissionMode ??= 'manual';
+  }
+  if (!Array.isArray(state.resumeVariants)) state.resumeVariants = [];
+  if (!Array.isArray(state.syncedJobs)) state.syncedJobs = [];
+  for (const job of state.syncedJobs) {
+    const intelligence = analyzeSyncedJob(job, state.profile);
+    job.industry ??= intelligence.industry;
+    job.employmentType ??= intelligence.employmentType;
+    job.education ??= intelligence.education;
+    job.experience ??= intelligence.experience;
+    job.skills ??= intelligence.skills;
+    job.salaryMinK ??= intelligence.salaryMinK;
+    job.salaryMaxK ??= intelligence.salaryMaxK;
+    job.remote ??= intelligence.remote;
+    job.matchScore ??= intelligence.matchScore;
+    job.matchDimensions ??= intelligence.matchDimensions;
+    job.matchReasons ??= intelligence.matchReasons;
+    job.trustScore ??= intelligence.trustScore;
+    job.riskFlags ??= intelligence.riskFlags;
+    job.biasFlags ??= intelligence.biasFlags;
+    job.qualityScore ??= intelligence.qualityScore;
+    job.lifecycleStatus ??= 'active';
+  }
+  if (!Array.isArray(state.jobSources)) state.jobSources = createDefaultJobSources();
+  if (!Array.isArray(state.jobSyncRuns)) state.jobSyncRuns = [];
+  if (!Array.isArray(state.jobFilterPresets)) state.jobFilterPresets = [];
+  if (!Array.isArray(state.jobAlertRules)) state.jobAlertRules = [];
+  if (!Array.isArray(state.careerSearchPlans)) state.careerSearchPlans = [];
+  if (!Array.isArray(state.careerAgentRuns)) state.careerAgentRuns = [];
+  if (!Array.isArray(state.careerMemory)) state.careerMemory = [];
+  if (!Array.isArray(state.companyWatches)) state.companyWatches = [];
+  if (!Array.isArray(state.obsidianSyncIndex)) state.obsidianSyncIndex = [];
+  if (!Array.isArray(state.obsidianSyncConflicts)) state.obsidianSyncConflicts = [];
+  if (!Array.isArray(state.obsidianSyncRuns)) state.obsidianSyncRuns = [];
+  if (!state.settings.jobSyncToken) state.settings.jobSyncToken = crypto.randomUUID();
+  state.settings.obsidian = validateObsidianSettingsInput(
+    state.settings.obsidian ?? {},
+    createDefaultObsidianSettings()
+  );
   return state as WorkspaceState;
 }
 

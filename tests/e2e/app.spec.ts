@@ -1,10 +1,12 @@
 import { test, expect, _electron as electron } from '@playwright/test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 test('desktop MVP completes the offline interview workflow and persists data', async () => {
   const dataDirectory = await mkdtemp(path.join(os.tmpdir(), 'interview-os-e2e-'));
+  const browserDataDirectory = path.join(dataDirectory, 'chromium');
+  const browserCacheDirectory = path.join(dataDirectory, 'chromium-cache');
   const env = { ...process.env, INTERVIEW_OS_DATA_DIR: dataDirectory };
   delete env.ELECTRON_RUN_AS_NODE;
   const app = await electron.launch({
@@ -13,8 +15,9 @@ test('desktop MVP completes the offline interview workflow and persists data', a
       '--disable-gpu',
       '--disable-gpu-compositing',
       '--disable-gpu-sandbox',
-      '--in-process-gpu',
       '--use-gl=swiftshader',
+      `--user-data-dir=${browserDataDirectory}`,
+      `--disk-cache-dir=${browserCacheDirectory}`,
       '--enable-logging=stderr'
     ],
     cwd: process.cwd(),
@@ -117,9 +120,11 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await page.getByTestId('training-start').click();
     await expect(page.getByTestId('training-stage')).toBeVisible();
     await expect(page.getByTestId('training-question')).toContainText('Please introduce');
+    expect(await page.getByTestId('training-stage').innerText()).not.toMatch(/[\u3400-\u9fff]/u);
     await expect(page.getByTestId('training-microphone')).toBeVisible();
     await page.getByTestId('training-recommended').click();
-    await expect(page.getByTestId('training-recommended-answer')).toContainText('AI 漫剧算力平台');
+    await expect(page.getByTestId('training-recommended-answer')).toContainText('[CANDIDATE MUST ADD EVIDENCE]');
+    expect(await page.getByTestId('training-stage').innerText()).not.toMatch(/[\u3400-\u9fff]/u);
     await page.screenshot({ path: path.resolve('artifacts', 'training-v0.4.png'), fullPage: true });
     await page.getByTestId('training-answer').fill(
       'The background was a failed canvas request. I was responsible for API integration and log diagnosis. I checked the service logs and configuration, found an inconsistent model mapping, coordinated the fix, redeployed it, and verified that the API recovered.'
@@ -127,19 +132,21 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     const firstPressureQuestion = await page.getByTestId('training-question').innerText();
     await page.getByTestId('training-submit').click();
     await expect(page.getByTestId('training-score')).toBeVisible();
-    await expect(page.locator('.coach-panel')).toContainText('证据不足');
-    await expect(page.locator('.coach-panel')).toContainText('结构 / 表达漏洞');
+    await expect(page.locator('.coach-panel')).toContainText('Evidence gaps');
+    await expect(page.locator('.coach-panel')).toContainText('Structure / expression issues');
+    expect(await page.getByTestId('training-stage').innerText()).not.toMatch(/[\u3400-\u9fff]/u);
     await page.getByTestId('sync-resume-advice').click();
     await page.getByTestId('training-finalize').click();
     await expect(page.getByTestId('training-question')).not.toHaveText(firstPressureQuestion);
-    await expect(page.locator('.question-meta')).toContainText('第 2 / 2 轮');
+    await expect(page.locator('.question-meta')).toContainText('Round 2 / 2');
     await page.getByTestId('training-answer').fill('I personally checked the logs, corrected the Deployment configuration, and used the API test record to verify that the service recovered.');
     await page.getByTestId('training-submit').click();
     await expect(page.locator('.coach-panel')).toContainText('Next dynamic follow-up');
     await page.screenshot({ path: path.resolve('artifacts', 'training-pressure-diagnosis.png'), fullPage: true });
     await page.getByTestId('training-finalize').click();
     await expect(page.getByTestId('pressure-summary')).toBeVisible();
-    await expect(page.getByTestId('pressure-summary')).toContainText('核心竞争力');
+    await expect(page.getByTestId('pressure-summary')).toContainText('Core strengths');
+    expect(await page.getByTestId('pressure-summary').innerText()).not.toMatch(/[\u3400-\u9fff]/u);
     await page.screenshot({ path: path.resolve('artifacts', 'training-pressure-summary.png'), fullPage: true });
 
     await page.getByTestId('nav-profile').click();
@@ -161,12 +168,37 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await page.screenshot({ path: path.resolve('artifacts', 'assistant-v0.4.png'), fullPage: true });
 
     await page.getByTestId('nav-settings').click();
-    await expect(page.locator('.settings-card')).toHaveCount(3);
-    await page.screenshot({ path: path.resolve('artifacts', 'settings-v0.4.png'), fullPage: true });
+    await expect(page.locator('.settings-card')).toHaveCount(4);
+    await mockFileSelection(dataDirectory);
+    await page.getByTestId('obsidian-create-vault').click();
+    await expect(page.getByTestId('obsidian-settings')).toContainText('Interview-OS-Vault');
+    await page.getByTestId('obsidian-preview').click();
+    await expect(page.getByTestId('obsidian-preview-list')).toBeVisible();
+    await page.getByTestId('obsidian-run-sync').click();
+    await expect(page.getByTestId('obsidian-feedback')).toContainText('同步完成');
+    await expect(page.getByTestId('obsidian-feedback')).toContainText('失败 0');
+    const persistedWorkspace = JSON.parse(await readFile(path.join(dataDirectory, 'database', 'state.json'), 'utf8')) as {
+      obsidianSyncIndex: Array<{ entityType: string; title: string; filePath: string }>;
+    };
+    const projectEntry = persistedWorkspace.obsidianSyncIndex.find((item) =>
+      item.entityType === 'project' && item.title === 'AI 漫剧算力平台'
+    );
+    expect(projectEntry).toBeTruthy();
+    const obsidianProjectPath = path.join(dataDirectory, 'Interview-OS-Vault', projectEntry!.filePath);
+    const obsidianProject = await readFile(obsidianProjectPath, 'utf8');
+    expect(obsidianProject).toContain('interview_os_id:');
+    expect(obsidianProject).toContain('<!-- interview-os:managed:start -->');
+    await page.screenshot({ path: path.resolve('artifacts', 'settings-v0.5-obsidian.png'), fullPage: true });
 
     await page.getByTestId('nav-knowledge').click();
     await page.getByTestId('knowledge-search').fill('Please introduce');
     await expect(page.locator('.collection-list .collection-item')).toHaveCount(1);
+    await page.getByTestId('nav-settings').click();
+    page.once('dialog', (dialog) => void dialog.accept());
+    await page.getByTestId('obsidian-disconnect').click();
+    await expect(page.getByTestId('obsidian-settings')).toContainText('未启用');
+    await page.getByTestId('nav-knowledge').click();
+    await expect(page.getByRole('button', { name: /E2E 专用知识卡/ })).toBeVisible();
 
     await app.close();
     appClosed = true;
@@ -177,8 +209,9 @@ test('desktop MVP completes the offline interview workflow and persists data', a
         '--disable-gpu',
         '--disable-gpu-compositing',
         '--disable-gpu-sandbox',
-        '--in-process-gpu',
-        '--use-gl=swiftshader'
+        '--use-gl=swiftshader',
+        `--user-data-dir=${browserDataDirectory}`,
+        `--disk-cache-dir=${browserCacheDirectory}`
       ],
       cwd: process.cwd(),
       env

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { ChevronRight, ChevronUp } from '@lucide/vue';
 import type { TrainingSession } from '../../shared/domain';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
@@ -39,7 +40,7 @@ function sessionAverage(session: TrainingSession): number | string {
         <button v-for="session in sessions" :key="session.id" class="session-row" :class="{ selected: selectedId === session.id }" type="button" :data-testid="`training-history-${session.id}`" @click="selectSession(session)">
           <span class="status-badge" :class="session.status">{{ session.status === 'completed' ? '完成' : '进行中' }}</span>
           <div><strong>{{ session.title }}</strong><small>{{ new Date(session.updatedAt).toLocaleString('zh-CN') }} · {{ session.language === 'en-US' ? 'English' : '中文' }} · {{ session.mode === 'pressure' ? '压力面试' : '基础训练' }}</small></div>
-          <span>{{ session.questions.length }} 题</span><b>{{ session.attempts.length }} 次回答</b><span class="history-score">均分 {{ sessionAverage(session) }}</span><span class="history-arrow">{{ selectedId === session.id ? '收起 ↑' : '查看 →' }}</span>
+          <span>{{ session.questions.length }} 题</span><b>{{ session.attempts.length }} 次回答</b><span class="history-score">均分 {{ sessionAverage(session) }}</span><span class="history-arrow">{{ selectedId === session.id ? '收起' : '查看' }}<ChevronUp v-if="selectedId === session.id" :size="13" aria-hidden="true" /><ChevronRight v-else :size="13" aria-hidden="true" /></span>
         </button>
         <p v-if="!sessions.length" class="muted-block">完成第一次训练后，这里会显示问题、回答和改进建议。</p>
       </div>

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createDemoState, nowIso } from './domain';
-import { createPressureFollowUp, diagnosePressureAnswer, generateQuestions, generateRecommendedAnswer, scoreAnswer } from './training-engine';
+import { buildPressureSummary, createPressureFollowUp, diagnosePressureAnswer, generateQuestions, generateRecommendedAnswer, scoreAnswer } from './training-engine';
+
+const cjkPattern = /[\u3400-\u9fff]/u;
 
 describe('training engine', () => {
   it('generates project-specific questions offline', () => {
@@ -34,7 +36,7 @@ describe('training engine', () => {
     expect(result.dimensions.find((item) => item.key === 'authenticity')?.score).toBeLessThan(94);
   });
 
-  it('generates English questions, feedback and a project-grounded recommended answer', () => {
+  it('keeps English questions, feedback and project guidance English-only', () => {
     const state = createDemoState();
     const project = state.projects[0];
     const question = generateQuestions(
@@ -44,13 +46,35 @@ describe('training engine', () => {
       project
     )[0];
     expect(question.text).toContain('Please introduce');
+    expect(JSON.stringify(question)).not.toMatch(cjkPattern);
     const result = scoreAnswer(
       'The background was a failed API request. I was responsible for diagnosis. I checked logs, found the configuration issue, coordinated the fix, and verified the restored service.',
       question,
       'en-US'
     );
     expect(result.dimensions[0].label).toBe('Accuracy');
-    expect(generateRecommendedAnswer(question, project, 'en-US')).toContain(project.name);
+    const recommended = generateRecommendedAnswer(question, project, 'en-US');
+    expect(recommended).not.toMatch(cjkPattern);
+    expect(recommended).toContain('[CANDIDATE MUST ADD EVIDENCE]');
+
+    const diagnosis = diagnosePressureAnswer(result.feedback.join(' '), question, project, 'en-US');
+    expect(JSON.stringify(diagnosis)).not.toMatch(cjkPattern);
+  });
+
+  it('keeps English follow-ups and pressure summaries English-only', () => {
+    const state = createDemoState();
+    const project = state.projects[0];
+    const first = generateQuestions({ projectId: project.id, mode: 'pressure', language: 'en-US' }, state, undefined, project)[0];
+    const session = {
+      id: 'english-session', title: 'English practice', status: 'active' as const, questions: [first], attempts: [],
+      currentQuestionIndex: 0, language: 'en-US' as const, mode: 'pressure' as const, maxRounds: 2,
+      createdAt: nowIso(), updatedAt: nowIso()
+    };
+    const next = createPressureFollowUp(session, '请继续追问这个中文问题', state.jobs[0], project);
+    const summary = buildPressureSummary(session, project);
+
+    expect(JSON.stringify(next)).not.toMatch(cjkPattern);
+    expect(JSON.stringify(summary)).not.toMatch(cjkPattern);
   });
 
   it('starts pressure mode with one hard question and diagnoses evidence gaps', () => {

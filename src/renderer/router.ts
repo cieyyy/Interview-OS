@@ -7,18 +7,35 @@ import TrainingPage from './pages/TrainingPage.vue';
 import ReportsPage from './pages/ReportsPage.vue';
 import AssistantPage from './pages/AssistantPage.vue';
 import SettingsPage from './pages/SettingsPage.vue';
+import ApplicationsPage from './pages/ApplicationsPage.vue';
+import ResumeStudioPage from './pages/ResumeStudioPage.vue';
+import CareerCalendarPage from './pages/CareerCalendarPage.vue';
+import JobSyncPage from './pages/JobSyncPage.vue';
+import JobInsightsPage from './pages/JobInsightsPage.vue';
+import CareerAgentPage from './pages/CareerAgentPage.vue';
+import CompaniesPage from './pages/CompaniesPage.vue';
+import SkillGraphPage from './pages/SkillGraphPage.vue';
+import DataCenterPage from './pages/DataCenterPage.vue';
 
 export default createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', name: 'dashboard', component: DashboardPage },
+    { path: '/career-agent', name: 'career-agent', component: CareerAgentPage },
     { path: '/knowledge', name: 'knowledge', component: KnowledgePage },
     { path: '/profile', name: 'profile', component: ProfilePage },
     { path: '/jobs', name: 'jobs', component: JobsPage },
+    { path: '/job-sync', name: 'job-sync', component: JobSyncPage },
+    { path: '/job-insights', name: 'job-insights', component: JobInsightsPage },
+    { path: '/companies', name: 'companies', component: CompaniesPage },
+    { path: '/skill-graph', name: 'skill-graph', component: SkillGraphPage },
+    { path: '/data-center', name: 'data-center', component: DataCenterPage },
+    { path: '/applications', name: 'applications', component: ApplicationsPage },
+    { path: '/resumes', name: 'resumes', component: ResumeStudioPage },
+    { path: '/calendar', name: 'calendar', component: CareerCalendarPage },
     { path: '/training', name: 'training', component: TrainingPage },
     { path: '/reports', name: 'reports', component: ReportsPage },
     { path: '/assistant', name: 'assistant', component: AssistantPage },
     { path: '/settings', name: 'settings', component: SettingsPage }
   ]
 });
-

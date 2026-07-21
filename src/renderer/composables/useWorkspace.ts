@@ -1,12 +1,25 @@
 import { computed, reactive } from 'vue';
 import type {
+  CareerMemoryInput,
+  CareerSearchPlanInput,
+  CompanyWatchInput,
   AppMeta,
   DocumentImportTarget,
   JobInput,
+  JobApplicationInput,
+  JobAlertRuleInput,
+  JobFilterPresetInput,
+  JobSyncBridgeStatus,
+  JobSourceInput,
   KnowledgeInput,
+  ObsidianIntegrationSettingsInput,
+  ObsidianIntegrationStatus,
+  ObsidianSyncPreview,
   ProfileInput,
   ProjectInput,
   ProviderInput,
+  ResumeVariantInput,
+  SyncedJobStatus,
   Result,
   TrainingAnswerInput,
   TrainingCoachInput,
@@ -23,6 +36,9 @@ const store = reactive<{
   error: string;
   notice: string;
   activeSession?: TrainingSession;
+  jobSyncStatus?: JobSyncBridgeStatus;
+  obsidianStatus?: ObsidianIntegrationStatus;
+  obsidianPreview?: ObsidianSyncPreview;
 }>({ loading: false, error: '', notice: '' });
 
 let initialized = false;
@@ -105,6 +121,76 @@ export function useWorkspace() {
       if (value) await refresh();
       return value;
     },
+    async saveApplication(input: JobApplicationInput) {
+      const value = await run(() => unwrap(window.interviewOS.saveApplication(toIpcPayload(input))), '求职进展已保存');
+      if (value) await refresh();
+      return value;
+    },
+    async saveResumeVariant(input: ResumeVariantInput) {
+      const value = await run(() => unwrap(window.interviewOS.saveResumeVariant(toIpcPayload(input))), '定向简历版本已保存');
+      if (value) await refresh();
+      return value;
+    },
+    async saveJobSource(input: JobSourceInput) {
+      const value = await run(() => unwrap(window.interviewOS.saveJobSource(toIpcPayload(input))), '岗位数据源已保存');
+      if (value) await refresh();
+      return value;
+    },
+    async saveJobFilterPreset(input: JobFilterPresetInput) {
+      const value = await run(() => unwrap(window.interviewOS.saveJobFilterPreset(toIpcPayload(input))), '筛选规则已保存');
+      if (value) await refresh();
+      return value;
+    },
+    async saveJobAlertRule(input: JobAlertRuleInput) {
+      const value = await run(() => unwrap(window.interviewOS.saveJobAlertRule(toIpcPayload(input))), '提醒规则已保存');
+      if (value) await refresh();
+      return value;
+    },
+    async validateJobSource(id: string) {
+      const value = await run(() => unwrap(window.interviewOS.validateJobSource(id)), '连接器框架验证完成');
+      if (value) await refresh();
+      return value;
+    },
+    async saveCareerSearchPlan(input: CareerSearchPlanInput) {
+      const value = await run(() => unwrap(window.interviewOS.saveCareerSearchPlan(toIpcPayload(input))), '求职搜索计划已保存');
+      if (value) await refresh();
+      return value;
+    },
+    async runCareerSearchPlan(id: string) {
+      const value = await run(() => unwrap(window.interviewOS.runCareerSearchPlan(id)), '本地求职 Agent 已完成规划');
+      if (value) await refresh();
+      return value;
+    },
+    async saveCareerMemory(input: CareerMemoryInput) {
+      const value = await run(() => unwrap(window.interviewOS.saveCareerMemory(toIpcPayload(input))), '求职记忆已保存');
+      if (value) await refresh();
+      return value;
+    },
+    async saveCompanyWatch(input: CompanyWatchInput) {
+      const value = await run(() => unwrap(window.interviewOS.saveCompanyWatch(toIpcPayload(input))), '关注公司已保存');
+      if (value) await refresh();
+      return value;
+    },
+    async validateCompanyWatch(id: string) {
+      const value = await run(() => unwrap(window.interviewOS.validateCompanyWatch(id)), '公司官网监控框架验证完成');
+      if (value) await refresh();
+      return value;
+    },
+    async refreshJobSyncStatus() {
+      const value = await run(() => unwrap(window.interviewOS.getJobSyncStatus()));
+      if (value) store.jobSyncStatus = value;
+      return value;
+    },
+    async promoteSyncedJob(id: string) {
+      const value = await run(() => unwrap(window.interviewOS.promoteSyncedJob(id)), '岗位已进入 JD 中心');
+      if (value) await refresh();
+      return value;
+    },
+    async updateSyncedJobStatus(id: string, status: SyncedJobStatus) {
+      const value = await run(() => unwrap(window.interviewOS.updateSyncedJobStatus(id, status)));
+      if (value) await refresh();
+      return value;
+    },
     async startTraining(input: TrainingStartInput) {
       const value = await run(() => unwrap(window.interviewOS.startTraining(toIpcPayload(input))));
       if (value) {
@@ -137,6 +223,66 @@ export function useWorkspace() {
     },
     async exportMarkdown() {
       return run(() => unwrap(window.interviewOS.exportMarkdown()), 'Markdown 已导出');
+    },
+    async selectObsidianVault() {
+      const value = await run(() => unwrap(window.interviewOS.selectObsidianVault()), '已连接 Obsidian Vault');
+      if (value) await refresh();
+      return value;
+    },
+    async createObsidianVault() {
+      const value = await run(() => unwrap(window.interviewOS.createObsidianVault()), '专属职业知识 Vault 已创建');
+      if (value) await refresh();
+      return value;
+    },
+    async testObsidianVault() {
+      return run(() => unwrap(window.interviewOS.testObsidianVault()));
+    },
+    async updateObsidianSettings(input: ObsidianIntegrationSettingsInput) {
+      const value = await run(
+        () => unwrap(window.interviewOS.updateObsidianSettings(toIpcPayload(input))),
+        'Obsidian 配置已保存'
+      );
+      if (value) await refresh();
+      return value;
+    },
+    async previewObsidianSync(entityId?: string) {
+      const value = await run(() => unwrap(window.interviewOS.previewObsidianSync(entityId ? { entityId } : {})));
+      if (value) store.obsidianPreview = value;
+      return value;
+    },
+    async runObsidianSync(entityId?: string) {
+      const value = await run(
+        () => unwrap(window.interviewOS.runObsidianSync(entityId ? { entityId, trigger: 'manual' } : { trigger: 'manual' })),
+        'Obsidian 单向同步已完成'
+      );
+      if (value) {
+        await refresh();
+        const status = await run(() => unwrap(window.interviewOS.getObsidianStatus()));
+        if (status) store.obsidianStatus = status;
+      }
+      return value;
+    },
+    async refreshObsidianStatus() {
+      const value = await run(() => unwrap(window.interviewOS.getObsidianStatus()));
+      if (value) store.obsidianStatus = value;
+      return value;
+    },
+    async openObsidianNote(entityId: string) {
+      return run(() => unwrap(window.interviewOS.openObsidianNote(entityId)));
+    },
+    async openObsidianFolder() {
+      return run(() => unwrap(window.interviewOS.openObsidianFolder()));
+    },
+    async copyObsidianWikiLink(entityId: string) {
+      return run(() => unwrap(window.interviewOS.copyObsidianWikiLink(entityId)), 'WikiLink 已复制');
+    },
+    async disconnectObsidian() {
+      const value = await run(() => unwrap(window.interviewOS.disconnectObsidian()), '已断开 Obsidian Vault');
+      if (value) {
+        store.obsidianStatus = undefined;
+        await refresh();
+      }
+      return value;
     },
     async saveProvider(input: ProviderInput) {
       const value = await run(() => unwrap(window.interviewOS.saveProvider(toIpcPayload(input))), 'Provider 配置已安全保存');

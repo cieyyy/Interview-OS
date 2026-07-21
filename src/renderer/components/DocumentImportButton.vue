@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { LoaderCircle, Upload } from '@lucide/vue';
 import type { DocumentImportResult, DocumentImportTarget } from '../../shared/domain';
 import { useWorkspace } from '../composables/useWorkspace';
 
@@ -32,6 +33,8 @@ async function choose(): Promise<void> {
     :data-testid="testId"
     @click="choose"
   >
-    <span aria-hidden="true">↑</span>{{ busy ? '正在识别…' : label }}
+    <LoaderCircle v-if="busy" class="spin" :size="15" aria-hidden="true" />
+    <Upload v-else :size="15" aria-hidden="true" />
+    {{ busy ? '正在识别…' : label }}
   </button>
 </template>

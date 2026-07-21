@@ -14,6 +14,26 @@ import type {
 
 const zhFillers = ['然后', '就是', '那个', '可能', '大概', '的话', '其实'];
 const enFillers = ['you know', 'like', 'basically', 'maybe', 'kind of', 'sort of'];
+const cjkPattern = /[\u3400-\u9fff]/u;
+
+function containsCjk(value: string): boolean {
+  return cjkPattern.test(value);
+}
+
+function englishText(value: string | undefined, fallback: string): string {
+  const normalized = value?.trim();
+  return normalized && !containsCjk(normalized) ? normalized : fallback;
+}
+
+function englishProjectReference(value: string | undefined): string {
+  const name = englishText(value, '');
+  return name ? `the “${name}” project` : 'the selected project';
+}
+
+function englishTechnologyList(values: string[]): string {
+  const englishValues = values.map((item) => item.trim()).filter((item) => item && !containsCjk(item));
+  return englishValues.join(', ') || 'system operations and troubleshooting';
+}
 
 function clamp(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
@@ -47,10 +67,11 @@ export function generateQuestions(
   const candidates: InterviewQuestion[] = [];
 
   if (project) {
+    const projectReference = englishProjectReference(project.name);
     candidates.push(
       question(
         english
-          ? `Please introduce the “${project.name}” project and explain your responsibilities.`
+          ? `Please introduce ${projectReference} and explain your responsibilities.`
           : `请介绍一下“${project.name}”项目，以及你在其中承担的职责。`,
         english ? 'Evaluates project communication and individual contribution' : '验证项目整体表达和个人贡献',
         english ? ['background', 'responsibility', 'action', 'result'] : ['背景', '职责', '方案', '结果'],
@@ -60,7 +81,7 @@ export function generateQuestions(
       ),
       question(
         english
-          ? `What was the most representative problem you encountered in “${project.name}”, and how did you diagnose and solve it?`
+          ? `What was the most representative problem you encountered in ${projectReference}, and how did you diagnose and solve it?`
           : `在“${project.name}”中，你遇到过最典型的问题是什么？你如何定位并解决？`,
         english ? 'Turns a real incident into a structured engineering story' : '把真实故障转化为结构化案例',
         english ? ['symptom', 'diagnosis', 'root cause', 'solution', 'verification'] : ['现象', '排查', '根因', '解决', '验证'],
@@ -73,15 +94,17 @@ export function generateQuestions(
 
   if (job) {
     for (const requirement of job.requirements.slice(0, 5)) {
+      const requirementLabel = englishText(requirement.label, 'this required capability');
+      const jobTitle = englishText(job.title, 'the target role');
       candidates.push(
         question(
           english
-            ? `This role requires “${requirement.label}”. Explain how you have used or understood this capability in a real situation.`
+            ? `This role requires ${requirementLabel}. Explain how you have used or understood this capability in a real situation.`
             : `目标岗位要求${requirement.label}。请结合你的实际经历说明你如何使用或理解这项能力。`,
           english
-            ? `Based on a ${requirement.priority === 'must' ? 'required' : 'related'} requirement for ${job.title}`
+            ? `Based on a ${requirement.priority === 'must' ? 'required' : 'related'} requirement for ${jobTitle}`
             : `来自 ${job.title} 的${requirement.priority === 'must' ? '必须' : '相关'}要求`,
-          english ? [requirement.label, 'context', 'responsibility', 'result'] : [requirement.label, '场景', '职责', '结果'],
+          english ? [requirementLabel, 'context', 'responsibility', 'result'] : [requirement.label, '场景', '职责', '结果'],
           [job.id, ...requirement.evidenceIds],
           requirement.category === 'soft-skill' ? 'behavioral' : 'technical',
           difficulty
@@ -242,7 +265,14 @@ export function generateRecommendedAnswer(
     if (!project) {
       return `A strong answer can follow this structure: start with the specific context, state your responsibility, explain two or three actions you personally took, and close with the verified result. Use only facts from your own experience and connect them to: ${currentQuestion.targetKeywords.join(', ')}.`;
     }
-    return `The project was ${project.name}. ${project.background} My role was ${project.role}, and I was mainly responsible for ${project.responsibilities} ${project.challenges ? `A key challenge was ${project.challenges}` : ''} ${project.actions ? `I addressed it by ${project.actions}` : ''} The result was ${project.results} This experience strengthened my practical ability in ${project.techStack.join(', ') || 'system operations and troubleshooting'}.`;
+    const projectName = englishText(project.name, 'the selected project');
+    const background = safeEvidence(project.background, language);
+    const role = safeEvidence(project.role, language);
+    const responsibilities = safeEvidence(project.responsibilities, language);
+    const challenge = project.challenges ? safeEvidence(project.challenges, language) : '';
+    const actions = project.actions ? safeEvidence(project.actions, language) : '';
+    const results = safeEvidence(project.results, language);
+    return `The project was ${projectName}. The context was ${background}. My role was ${role}, and I was mainly responsible for ${responsibilities}.${challenge ? ` A key challenge was ${challenge}.` : ''}${actions ? ` I addressed it by ${actions}.` : ''} The result was ${results}. This experience strengthened my practical ability in ${englishTechnologyList(project.techStack)}.`;
   }
   if (!project) {
     return `建议按“具体背景—个人职责—关键行动—验证结果”回答，并围绕“${currentQuestion.targetKeywords.join('、')}”补充真实细节。只使用自己确实做过、能够被追问验证的内容。`;
@@ -255,7 +285,7 @@ function hasAny(text: string, terms: RegExp): boolean {
 }
 
 function safeEvidence(value: string | undefined, language: TrainingLanguage): string {
-  if (!value || /待补充|待命名|未单独列出/.test(value)) {
+  if (!value || /待补充|待命名|未单独列出/.test(value) || (language === 'en-US' && containsCjk(value))) {
     return language === 'en-US' ? '[CANDIDATE MUST ADD EVIDENCE]' : '【需要本人补充】';
   }
   return value;
@@ -314,7 +344,7 @@ export function diagnosePressureAnswer(
   const resumeUpdateNeeded = evidenceGaps.length > 0 || structure < 75 || contribution < 75;
   const resumeSuggestion = resumeUpdateNeeded
     ? (english
-        ? `For the “${project?.name ?? 'selected'}” resume entry, add your ownership boundary, one key action, the verification method, and the source of any numeric result. Unknown facts must remain marked for completion.`
+        ? `For ${englishProjectReference(project?.name)}, add your ownership boundary, one key action, the verification method, and the source of any numeric result. Unknown facts must remain marked for completion.`
         : `建议在“${project?.name ?? '当前'}”项目经历中补充：个人责任边界、一个关键动作、结果验证方式，以及量化数据的来源；无法确认的信息保留“【需要本人补充】”。`)
     : (english ? 'The resume entry is consistent with this answer; only tighten wording.' : '当前回答与项目经历基本一致，仅需压缩措辞。');
 
@@ -349,11 +379,13 @@ export function createPressureFollowUp(
 ): InterviewQuestion {
   const english = session.language === 'en-US';
   const round = session.attempts.filter((item) => item.isFinal).length + 1;
+  const projectReference = englishProjectReference(project?.name);
+  const jobTitle = englishText(job?.title, 'the target role');
   const fallbacks = english ? [
-    `Which actions in “${project?.name ?? 'this experience'}” were completed by you personally, and which were completed by others?`,
+    `Which actions in ${projectReference} were completed by you personally, and which were completed by others?`,
     'Describe the hardest failure or setback. What did you do when your first approach did not work?',
     'You mentioned a result. What evidence, measurement window, or record proves it?',
-    `How does this experience demonstrate a required capability for ${job?.title ?? 'the target role'}?`,
+    `How does this experience demonstrate a required capability for ${jobTitle}?`,
     'Walk me through one technical decision in enough detail that an engineer could challenge it.',
     'What risk did you miss at the time, and what would you change if you repeated the work?',
     'Give me the strongest claim on your resume and prove it without using vague adjectives.'
@@ -367,6 +399,7 @@ export function createPressureFollowUp(
     '选择简历上最强的一句话，不使用模糊形容词，直接证明它。'
   ];
   let text = requestedQuestion.trim();
+  if (english && containsCjk(text)) text = '';
   if (!text || isRepeatedQuestion(text, session.questions)) {
     text = fallbacks.find((item) => !isRepeatedQuestion(item, session.questions))
       ?? fallbacks[(Math.max(2, round) - 2) % fallbacks.length];
@@ -386,7 +419,8 @@ export function buildPressureSummary(
   project?: ProjectExperience,
   supplied?: PressureSessionSummary
 ): PressureSessionSummary {
-  if (supplied?.coreStrengths?.length && supplied.highRiskGaps?.length) return supplied;
+  const english = session.language === 'en-US';
+  if (supplied?.coreStrengths?.length && supplied.highRiskGaps?.length && (!english || !containsCjk(JSON.stringify(supplied)))) return supplied;
   const finals = session.attempts.filter((item) => item.isFinal);
   const dimensionRows = finals.flatMap((attempt) => attempt.dimensions);
   const dimensionAverage = (key: ScoreDimension['key']): number => {
@@ -399,19 +433,35 @@ export function buildPressureSummary(
   const challenges = finals.map((item) => item.diagnosis?.interviewerChallenge).filter(Boolean) as string[];
   const resumeSuggestions = finals.map((item) => item.diagnosis?.resumeSuggestion).filter(Boolean) as string[];
   const evidenceGaps = finals.flatMap((item) => item.diagnosis?.evidenceGaps ?? []);
-  const defaultQuestions = [
+  const defaultQuestions = english ? [
+    'What evidence and measurement criteria support this result?',
+    'Which actions did you personally complete?',
+    'How did you adjust when the first approach failed?',
+    'How does this experience match a core requirement of the target role?',
+    'Which technical or collaboration decision would you change if you repeated the work?'
+  ] : [
     '这个结果的证据和统计口径是什么？',
     '其中哪些动作由你本人完成？',
     '第一次方案失败时你如何调整？',
     '这段经历与目标岗位的核心要求有什么关系？',
     '如果重做一次，你会修改哪个技术或协作决策？'
   ];
+  const fallbackResumeSuggestion = english
+    ? `Recheck the ownership, evidence sources, and verified results for ${englishProjectReference(project?.name)}.`
+    : `重新核对“${project?.name ?? '核心项目'}”中的个人贡献、数据来源和验证结果。`;
   return {
-    coreStrengths: ranked.slice(0, 3).map((item) => `${item.label}：平均 ${item.score} 分`).filter((item) => !item.endsWith('0 分')),
-    highRiskGaps: [...new Set([...evidenceGaps, ...ranked.slice(-3).map((item) => `${item.label}仍是高风险项，当前平均 ${item.score} 分`)])].slice(0, 3),
+    coreStrengths: ranked.slice(0, 3).map((item) => english ? `${item.label}: average score ${item.score}` : `${item.label}：平均 ${item.score} 分`).filter((item) => english ? !item.endsWith(' 0') : !item.endsWith('0 分')),
+    highRiskGaps: [...new Set([...evidenceGaps, ...ranked.slice(-3).map((item) => english ? `${item.label} remains a high-risk area with an average score of ${item.score}.` : `${item.label}仍是高风险项，当前平均 ${item.score} 分`)])].slice(0, 3),
     practiceQuestions: [...new Set([...challenges, ...defaultQuestions])].slice(0, 5),
-    resumeSuggestions: [...new Set(resumeSuggestions.length ? resumeSuggestions : [`重新核对“${project?.name ?? '核心项目'}”中的个人贡献、数据来源和验证结果。`])].slice(0, 5),
-    checklist: [
+    resumeSuggestions: [...new Set(resumeSuggestions.length ? resumeSuggestions : [fallbackResumeSuggestion])].slice(0, 5),
+    checklist: english ? [
+      'The target company, role, and job description have been reviewed.',
+      'Every numeric claim on the resume has a source or verification method.',
+      'Personal ownership is clearly separated from team responsibility.',
+      'At least one failure, conflict, or rollback example is prepared.',
+      'Each core project has 30-second, 90-second, and deep-dive versions.',
+      'Unknown information remains marked as [CANDIDATE MUST ADD EVIDENCE].'
+    ] : [
       '目标公司、目标岗位和 JD 已核对',
       '简历每个数字都有来源或验证方式',
       '项目中的个人职责与团队职责已分开',

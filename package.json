@@ -1,6 +1,6 @@
 {
   "name": "interview-os",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "author": "Interview OS Team",
   "description": "Local-first AI-assisted interview knowledge base for Windows",
@@ -21,6 +21,7 @@
     "package:win": "npm run build && electron-builder --win"
   },
   "dependencies": {
+    "@lucide/vue": "^1.25.0",
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
     "rtf-to-text": "0.1.1",
@@ -55,6 +56,12 @@
       "dist/**/*",
       "dist-electron/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "browser-extension",
+        "to": "browser-extension"
+      }
     ],
     "asar": true,
     "win": {

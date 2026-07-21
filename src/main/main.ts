@@ -1,12 +1,20 @@
 import { app, BrowserWindow, Menu, shell } from 'electron';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { registerIpc } from './ipc/register-ipc';
 import { ProviderService } from './services/provider-service';
 import { DocumentImportService } from './services/document-import-service';
+import { JobSyncService } from './services/job-sync-service';
+import { ObsidianVaultService } from './services/obsidian-vault-service';
 import { WorkspaceService } from './services/workspace-service';
 import { ElectronSecretStore } from './storage/secret-store';
 import { AtomicWorkspaceRepository } from './storage/workspace-repository';
+
+if (process.env.INTERVIEW_OS_DATA_DIR) {
+  const isolatedUserData = path.join(path.resolve(process.env.INTERVIEW_OS_DATA_DIR), '.electron-user-data');
+  mkdirSync(isolatedUserData, { recursive: true });
+  app.setPath('userData', isolatedUserData);
+}
 
 // Keep the desktop client usable on older Windows installations and virtual
 // machines whose GPU process cannot load. The product UI does not depend on
@@ -16,6 +24,7 @@ app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-gpu-compositing');
 
 let mainWindow: BrowserWindow | undefined;
+let jobSyncService: JobSyncService | undefined;
 
 function resolveDataDirectory(): string {
   if (process.env.INTERVIEW_OS_DATA_DIR) return path.resolve(process.env.INTERVIEW_OS_DATA_DIR);
@@ -96,7 +105,10 @@ app.whenReady().then(async () => {
   const workspace = new WorkspaceService(repository);
   const provider = new ProviderService(repository, new ElectronSecretStore(repository.rootDirectory));
   const documentImport = new DocumentImportService(provider);
-  registerIpc(workspace, repository, provider, documentImport);
+  const obsidian = new ObsidianVaultService(repository);
+  jobSyncService = new JobSyncService(workspace);
+  await jobSyncService.start();
+  registerIpc(workspace, repository, provider, documentImport, jobSyncService, obsidian);
   await createWindow();
 
   app.on('activate', () => {
@@ -109,4 +121,8 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  void jobSyncService?.stop();
 });

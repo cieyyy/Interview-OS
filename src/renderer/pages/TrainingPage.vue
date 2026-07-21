@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { Mic, MicOff, Volume2 } from '@lucide/vue';
 import type { TrainingCoachResult, TrainingLanguage, TrainingMode } from '../../shared/domain';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
@@ -25,6 +27,7 @@ interface SpeechRecognitionLike {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 const { store, startTraining, submitTraining, finalizeTraining, coachTraining, saveProject } = useWorkspace();
+const route = useRoute();
 const jobId = ref('');
 const projectId = ref('');
 const language = ref<TrainingLanguage>('zh-CN');
@@ -52,6 +55,29 @@ const isEnglish = computed(() => (active.value?.language ?? language.value) === 
 const completedRounds = computed(() => active.value?.attempts.filter((item) => item.isFinal).length ?? 0);
 const progressTotal = computed(() => active.value?.mode === 'pressure' ? (active.value.maxRounds ?? 8) : (active.value?.questions.length ?? 0));
 const selectedProject = computed(() => store.workspace?.projects.find((item) => item.id === active.value?.projectId));
+const cjkPattern = /[\u3400-\u9fff]/u;
+
+watch(
+  () => [route.query.jobId, store.workspace?.jobs.length] as const,
+  ([value]) => {
+    if (typeof value === 'string' && store.workspace?.jobs.some((item) => item.id === value)) jobId.value = value;
+  },
+  { immediate: true }
+);
+
+function englishDisplay(value: string | undefined, fallback: string): string {
+  const normalized = value?.trim();
+  return normalized && !cjkPattern.test(normalized) ? normalized : fallback;
+}
+
+function englishEvidence(value: string | undefined): string {
+  return englishDisplay(value, '[CANDIDATE MUST ADD EVIDENCE]');
+}
+
+function englishTech(values: string[]): string {
+  const safe = values.filter((value) => value.trim() && !cjkPattern.test(value));
+  return safe.join(', ') || 'system operations and troubleshooting';
+}
 
 function localRecommendedAnswer(languageValue: TrainingLanguage): string {
   const project = store.workspace?.projects.find((item) => item.id === active.value?.projectId);
@@ -61,7 +87,7 @@ function localRecommendedAnswer(languageValue: TrainingLanguage): string {
       : '可以先说明事情背景，再讲清楚自己的职责和采取的具体行动，最后用可验证的结果收尾。请把每一部分替换成自己的真实经历。';
   }
   return languageValue === 'en-US'
-    ? `The context was ${project.background} My responsibility was ${project.responsibilities} ${project.actions ? `I took the following actions: ${project.actions}` : ''} The result was ${project.results}`
+    ? `The selected experience was ${englishDisplay(project.name, 'the selected project')}. The context was ${englishEvidence(project.background)}. My role was ${englishEvidence(project.role)}, and I was responsible for ${englishEvidence(project.responsibilities)}. I took these actions: ${englishEvidence(project.actions)}. The verified result was ${englishEvidence(project.results)}. Relevant skills: ${englishTech(project.techStack)}.`
     : `这个项目的背景是：${project.background}\n我在其中主要负责：${project.responsibilities}${project.actions ? `\n我采取的具体行动包括：${project.actions}` : ''}\n最终结果是：${project.results}`;
 }
 
@@ -77,7 +103,9 @@ function resetQuestionState(): void {
 async function start(): Promise<void> {
   setupMessage.value = '';
   if (practiceMode.value === 'pressure' && (!jobId.value || !projectId.value)) {
-    setupMessage.value = '压力面试需要同时选择目标 JD 和一段项目经历，才能校验岗位匹配与简历证据。';
+    setupMessage.value = isEnglish.value
+      ? 'Pressure interview mode requires both a target role and a project experience so the coach can verify role fit and resume evidence.'
+      : '压力面试需要同时选择目标 JD 和一段项目经历，才能校验岗位匹配与简历证据。';
     return;
   }
   const session = await startTraining({
@@ -109,7 +137,9 @@ async function requestCoach(showAnswer = true, answerOverride?: string): Promise
     } else {
       const languageValue = active.value.language ?? language.value;
       coachResult.value = {
-        feedback: `远程陪练请求未完成，已显示本地推荐结构。${store.error ? `原因：${store.error}` : ''}`,
+        feedback: languageValue === 'en-US'
+          ? 'The remote coaching request did not complete. A local answer structure is shown instead.'
+          : `远程陪练请求未完成，已显示本地推荐结构。${store.error ? `原因：${store.error}` : ''}`,
         recommendedAnswer: localRecommendedAnswer(languageValue),
         followUpQuestion: languageValue === 'en-US'
           ? 'Which part of this answer can you support with a concrete action and result?'
@@ -124,7 +154,9 @@ async function requestCoach(showAnswer = true, answerOverride?: string): Promise
         },
         source: 'local'
       };
-      coachMessage.value = '远程 AI 未返回可显示内容，已自动切换到本地推荐回答。';
+      coachMessage.value = languageValue === 'en-US'
+        ? 'The remote AI returned no usable English content. The local English coach is now active.'
+        : '远程 AI 未返回可显示内容，已自动切换到本地推荐回答。';
     }
   } finally {
     coachBusy.value = false;
@@ -160,13 +192,15 @@ async function syncResumeSuggestion(): Promise<void> {
   const suggestion = coachResult.value?.diagnosis.resumeSuggestion.trim();
   if (!item || !suggestion || syncBusy.value) return;
   syncBusy.value = true;
-  const marker = `第 ${completedRounds.value + 1} 轮校准`;
+  const marker = isEnglish.value ? `Round ${completedRounds.value + 1} calibration` : `第 ${completedRounds.value + 1} 轮校准`;
   const existing = item.interviewRevisionNotes?.trim() ?? '';
   const saved = await saveProject({
     ...item,
-    interviewRevisionNotes: [existing, `${marker}：${suggestion}`].filter(Boolean).join('\n\n')
+    interviewRevisionNotes: [existing, `${marker}: ${suggestion}`].filter(Boolean).join('\n\n')
   });
-  if (saved) coachMessage.value = `修改建议已同步到“${item.name}”的面试校准记录。`;
+  if (saved) coachMessage.value = isEnglish.value
+    ? 'The recommendation was synced to the selected project calibration notes.'
+    : `修改建议已同步到“${item.name}”的面试校准记录。`;
   syncBusy.value = false;
 }
 
@@ -185,7 +219,9 @@ function toggleListening(): void {
   }
   const Constructor = speechConstructor();
   if (!Constructor) {
-    speechMessage.value = '当前系统不支持语音识别，请使用文字输入或更新系统语音组件。';
+    speechMessage.value = isEnglish.value
+      ? 'Speech recognition is unavailable on this system. Use text input or update the system speech components.'
+      : '当前系统不支持语音识别，请使用文字输入或更新系统语音组件。';
     return;
   }
   recognition = new Constructor();
@@ -204,7 +240,7 @@ function toggleListening(): void {
     answer.value = [original, `${finalTranscript}${interim}`.trim()].filter(Boolean).join(original ? '\n' : '');
   };
   recognition.onerror = (event) => {
-    speechMessage.value = `语音识别未完成：${event.error}`;
+    speechMessage.value = isEnglish.value ? `Speech recognition failed: ${event.error}` : `语音识别未完成：${event.error}`;
     isListening.value = false;
   };
   recognition.onend = () => { isListening.value = false; };
@@ -213,7 +249,9 @@ function toggleListening(): void {
     isListening.value = true;
     speechMessage.value = isEnglish.value ? 'Listening… Speak naturally.' : '正在听取，请自然作答…';
   } catch (error) {
-    speechMessage.value = error instanceof Error ? error.message : '麦克风启动失败';
+    speechMessage.value = error instanceof Error
+      ? error.message
+      : (isEnglish.value ? 'Unable to start the microphone.' : '麦克风启动失败');
     isListening.value = false;
   }
 }
@@ -235,59 +273,59 @@ function leaveSession(): void {
 
 <template>
   <section>
-    <PageHeader eyebrow="PRACTICE" title="面试训练" description="支持中英文、麦克风作答、AI 1V1 陪练与可追溯的推荐回答。">
-      <button v-if="active" class="button ghost" type="button" @click="leaveSession">结束本次训练</button>
+    <PageHeader eyebrow="PRACTICE" :title="isEnglish ? 'Interview Practice' : '面试训练'" :description="isEnglish ? 'Practice in English with voice input, AI coaching, and traceable answer guidance.' : '支持中英文、麦克风作答、AI 1V1 陪练与可追溯的推荐回答。'">
+      <button v-if="active" class="button ghost" type="button" @click="leaveSession">{{ isEnglish ? 'End session' : '结束本次训练' }}</button>
     </PageHeader>
 
     <div v-if="!active" class="training-setup">
-      <div class="setup-copy"><span class="eyebrow">CLOSED LOOP PRACTICE</span><h2>走完闭环，简历才经得起追问</h2><p>不是让 AI 替你写简历，而是通过真实压力面试，把每一句简历变成能够当场证明的能力。</p><div class="loop-flow" aria-label="求职训练闭环"><span>岗位研究</span><i>→</i><span>简历证据</span><i>→</i><span>压力面试</span><i>→</i><span>回写修正</span><i>→</i><span>面试清单</span></div><ul><li>最多 8 轮，一次只问一个问题</li><li>根据上一轮回答动态追问，自动避开重复问题</li><li>拆出证据缺口、结构断点、表达漏洞和简历修改建议</li></ul></div>
+      <div class="setup-copy"><span class="eyebrow">CLOSED LOOP PRACTICE</span><h2>{{ isEnglish ? 'Build answers that survive follow-up questions' : '走完闭环，简历才经得起追问' }}</h2><p>{{ isEnglish ? 'Use realistic pressure interviews to turn every resume claim into evidence you can explain and defend.' : '不是让 AI 替你写简历，而是通过真实压力面试，把每一句简历变成能够当场证明的能力。' }}</p><div class="loop-flow" :aria-label="isEnglish ? 'Interview practice loop' : '求职训练闭环'"><span>{{ isEnglish ? 'Role research' : '岗位研究' }}</span><i>→</i><span>{{ isEnglish ? 'Resume evidence' : '简历证据' }}</span><i>→</i><span>{{ isEnglish ? 'Pressure interview' : '压力面试' }}</span><i>→</i><span>{{ isEnglish ? 'Revise evidence' : '回写修正' }}</span><i>→</i><span>{{ isEnglish ? 'Final checklist' : '面试清单' }}</span></div><ul><li>{{ isEnglish ? 'Up to 8 rounds, with one question at a time' : '最多 8 轮，一次只问一个问题' }}</li><li>{{ isEnglish ? 'Dynamic follow-ups based on the previous answer, without repetition' : '根据上一轮回答动态追问，自动避开重复问题' }}</li><li>{{ isEnglish ? 'Identify evidence gaps, structural issues, delivery risks, and resume updates' : '拆出证据缺口、结构断点、表达漏洞和简历修改建议' }}</li></ul></div>
       <form class="panel setup-form" data-testid="training-setup" @submit.prevent="start">
-        <h3>设置训练范围</h3>
-        <label>目标 JD<select v-model="jobId" class="input" data-testid="training-job"><option value="">综合训练</option><option v-for="job in store.workspace?.jobs" :key="job.id" :value="job.id">{{ job.company }} · {{ job.title }}</option></select></label>
-        <label>项目经历<select v-model="projectId" class="input" data-testid="training-project"><option value="">不指定项目</option><option v-for="item in store.workspace?.projects" :key="item.id" :value="item.id">{{ item.name }}</option></select></label>
+        <h3>{{ isEnglish ? 'Set the practice scope' : '设置训练范围' }}</h3>
+        <label>{{ isEnglish ? 'Target role' : '目标 JD' }}<select v-model="jobId" class="input" data-testid="training-job"><option value="">{{ isEnglish ? 'General practice' : '综合训练' }}</option><option v-for="(job, index) in store.workspace?.jobs" :key="job.id" :value="job.id">{{ isEnglish ? `${englishDisplay(job.company, 'Company')} · ${englishDisplay(job.title, `Target role ${index + 1}`)}` : `${job.company} · ${job.title}` }}</option></select></label>
+        <label>{{ isEnglish ? 'Project experience' : '项目经历' }}<select v-model="projectId" class="input" data-testid="training-project"><option value="">{{ isEnglish ? 'No specific project' : '不指定项目' }}</option><option v-for="(item, index) in store.workspace?.projects" :key="item.id" :value="item.id">{{ isEnglish ? englishDisplay(item.name, `Project ${index + 1}`) : item.name }}</option></select></label>
         <div class="form-grid two">
-          <label>训练语言<select v-model="language" class="input" data-testid="training-language"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
-          <label>陪练模式<select v-model="practiceMode" class="input" data-testid="training-mode"><option value="pressure">压力面试闭环</option><option value="standard">基础模拟面试</option></select></label>
+          <label>{{ isEnglish ? 'Practice language' : '训练语言' }}<select v-model="language" class="input" data-testid="training-language"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
+          <label>{{ isEnglish ? 'Practice mode' : '陪练模式' }}<select v-model="practiceMode" class="input" data-testid="training-mode"><option value="pressure">{{ isEnglish ? 'Pressure interview loop' : '压力面试闭环' }}</option><option value="standard">{{ isEnglish ? 'Standard mock interview' : '基础模拟面试' }}</option></select></label>
         </div>
-        <label v-if="practiceMode === 'pressure'">压力面试轮数<select v-model.number="maxRounds" class="input" data-testid="training-max-rounds"><option :value="2">2 轮快速校准</option><option :value="4">4 轮核心追问</option><option :value="6">6 轮完整训练</option><option :value="8">8 轮深度压力面试</option></select></label>
-        <div class="info-box"><strong>本次模式</strong><span>{{ practiceMode === 'pressure' ? `严格追问 · ${maxRounds} 轮 · 动态生成 · 回写项目经历` : '综合问题 · 中等难度 · 5 题 · 基础评分' }}</span></div>
+        <label v-if="practiceMode === 'pressure'">{{ isEnglish ? 'Pressure interview rounds' : '压力面试轮数' }}<select v-model.number="maxRounds" class="input" data-testid="training-max-rounds"><option :value="2">{{ isEnglish ? '2 rounds · Quick calibration' : '2 轮快速校准' }}</option><option :value="4">{{ isEnglish ? '4 rounds · Core follow-ups' : '4 轮核心追问' }}</option><option :value="6">{{ isEnglish ? '6 rounds · Full practice' : '6 轮完整训练' }}</option><option :value="8">{{ isEnglish ? '8 rounds · Deep pressure interview' : '8 轮深度压力面试' }}</option></select></label>
+        <div class="info-box"><strong>{{ isEnglish ? 'Current mode' : '本次模式' }}</strong><span>{{ practiceMode === 'pressure' ? (isEnglish ? `Strict follow-ups · ${maxRounds} rounds · Dynamic questions · Resume calibration` : `严格追问 · ${maxRounds} 轮 · 动态生成 · 回写项目经历`) : (isEnglish ? 'Mixed questions · Medium difficulty · 5 questions · Core scoring' : '综合问题 · 中等难度 · 5 题 · 基础评分') }}</span></div>
         <p v-if="setupMessage" class="form-error" role="alert">{{ setupMessage }}</p>
-        <button class="button primary full" type="submit" data-testid="training-start">开始训练</button>
+        <button class="button primary full" type="submit" data-testid="training-start">{{ isEnglish ? 'Start practice' : '开始训练' }}</button>
       </form>
     </div>
 
     <div v-else-if="active.status === 'completed' && active.summary" class="pressure-complete" data-testid="pressure-summary">
-      <div class="pressure-complete-heading"><div><span class="eyebrow">CLOSED LOOP COMPLETE</span><h2>压力面试闭环已完成</h2><p>下面不是泛化评分，而是基于本次问答形成的面试风险与简历校准清单。</p></div><button class="button primary" type="button" @click="leaveSession">返回训练入口</button></div>
+      <div class="pressure-complete-heading"><div><span class="eyebrow">CLOSED LOOP COMPLETE</span><h2>{{ isEnglish ? 'Pressure interview loop completed' : '压力面试闭环已完成' }}</h2><p>{{ isEnglish ? 'This is an evidence-based interview risk and resume calibration summary from the completed session.' : '下面不是泛化评分，而是基于本次问答形成的面试风险与简历校准清单。' }}</p></div><button class="button primary" type="button" @click="leaveSession">{{ isEnglish ? 'Back to practice setup' : '返回训练入口' }}</button></div>
       <div class="summary-grid">
-        <section class="panel"><h3>核心竞争力</h3><ul><li v-for="item in active.summary.coreStrengths" :key="item">{{ item }}</li></ul></section>
-        <section class="panel risk"><h3>三个高风险漏洞</h3><ul><li v-for="item in active.summary.highRiskGaps" :key="item">{{ item }}</li></ul></section>
-        <section class="panel"><h3>最需要练习的问题</h3><ol><li v-for="item in active.summary.practiceQuestions" :key="item">{{ item }}</li></ol></section>
-        <section class="panel"><h3>简历修改建议</h3><ul><li v-for="item in active.summary.resumeSuggestions" :key="item">{{ item }}</li></ul></section>
-        <section class="panel checklist"><h3>面试前最终检查清单</h3><label v-for="item in active.summary.checklist" :key="item"><input type="checkbox" />{{ item }}</label></section>
+        <section class="panel"><h3>{{ isEnglish ? 'Core strengths' : '核心竞争力' }}</h3><ul><li v-for="item in active.summary.coreStrengths" :key="item">{{ item }}</li></ul></section>
+        <section class="panel risk"><h3>{{ isEnglish ? 'Three high-risk gaps' : '三个高风险漏洞' }}</h3><ul><li v-for="item in active.summary.highRiskGaps" :key="item">{{ item }}</li></ul></section>
+        <section class="panel"><h3>{{ isEnglish ? 'Questions to practice' : '最需要练习的问题' }}</h3><ol><li v-for="item in active.summary.practiceQuestions" :key="item">{{ item }}</li></ol></section>
+        <section class="panel"><h3>{{ isEnglish ? 'Resume updates' : '简历修改建议' }}</h3><ul><li v-for="item in active.summary.resumeSuggestions" :key="item">{{ item }}</li></ul></section>
+        <section class="panel checklist"><h3>{{ isEnglish ? 'Final pre-interview checklist' : '面试前最终检查清单' }}</h3><label v-for="item in active.summary.checklist" :key="item"><input type="checkbox" />{{ item }}</label></section>
       </div>
     </div>
 
     <div v-else-if="currentQuestion" class="training-stage" data-testid="training-stage">
       <article class="question-card">
-        <div class="question-meta"><span>第 {{ active.currentQuestionIndex + 1 }} / {{ progressTotal }} {{ active.mode === 'pressure' ? '轮' : '题' }}</span><span>{{ active.mode === 'pressure' ? 'PRESSURE' : currentQuestion.type }} · {{ currentQuestion.difficulty }} · {{ isEnglish ? 'EN' : '中文' }}</span></div>
+        <div class="question-meta"><span>{{ isEnglish ? `Round ${active.currentQuestionIndex + 1} / ${progressTotal}` : `第 ${active.currentQuestionIndex + 1} / ${progressTotal} ${active.mode === 'pressure' ? '轮' : '题'}` }}</span><span>{{ active.mode === 'pressure' ? 'PRESSURE' : currentQuestion.type }} · {{ currentQuestion.difficulty }} · {{ isEnglish ? 'EN' : '中文' }}</span></div>
         <h2 data-testid="training-question">{{ currentQuestion.text }}</h2>
         <p class="rationale">{{ isEnglish ? 'Why this question: ' : '提问依据：' }}{{ currentQuestion.rationale }}</p>
-        <div class="question-tools"><div class="tag-row"><span v-for="keyword in currentQuestion.targetKeywords" :key="keyword">{{ keyword }}</span></div><button class="button light compact" type="button" data-testid="training-read-question" @click="readQuestion">🔊 {{ isEnglish ? 'Read aloud' : '朗读题目' }}</button></div>
+        <div class="question-tools"><div class="tag-row"><span v-for="keyword in currentQuestion.targetKeywords" :key="keyword">{{ keyword }}</span></div><button class="button light compact" type="button" data-testid="training-read-question" @click="readQuestion"><Volume2 :size="15" />{{ isEnglish ? 'Read aloud' : '朗读题目' }}</button></div>
       </article>
 
       <div class="answer-layout">
         <form class="panel answer-panel" @submit.prevent="submit">
-          <div class="answer-label-row"><strong>{{ isEnglish ? 'Your answer' : '你的回答' }}</strong><button class="button secondary compact microphone-button" :class="{ recording: isListening }" type="button" data-testid="training-microphone" @click="toggleListening">🎙 {{ isListening ? (isEnglish ? 'Stop' : '停止录音') : (isEnglish ? 'Answer by voice' : '语音作答') }}</button></div>
+          <div class="answer-label-row"><strong>{{ isEnglish ? 'Your answer' : '你的回答' }}</strong><button class="button secondary compact microphone-button" :class="{ recording: isListening }" type="button" data-testid="training-microphone" @click="toggleListening"><MicOff v-if="isListening" :size="15" /><Mic v-else :size="15" />{{ isListening ? (isEnglish ? 'Stop' : '停止录音') : (isEnglish ? 'Answer by voice' : '语音作答') }}</button></div>
           <textarea v-model="answer" class="input answer-textarea" required data-testid="training-answer" :placeholder="isEnglish ? 'Answer naturally as if this were a real interview.' : '像真实面试一样直接回答。可以卡顿，但不要背标准答案。'"></textarea>
           <p v-if="speechMessage" class="speech-message">{{ speechMessage }}</p>
-          <div class="answer-footer"><small>{{ answer.length }} {{ isEnglish ? 'characters' : '字' }}</small><div class="button-row inline"><button class="button secondary" type="button" data-testid="training-recommended" :disabled="coachBusy" @click="requestCoach(true)">{{ coachBusy ? '生成中…' : (coachResult && showRecommended ? (isEnglish ? 'Regenerate' : '重新生成') : (isEnglish ? 'Recommended answer' : '查看推荐回答')) }}</button><button class="button primary" type="submit" data-testid="training-submit">{{ isEnglish ? 'Analyze answer' : '分析回答' }}</button></div></div>
+          <div class="answer-footer"><small>{{ answer.length }} {{ isEnglish ? 'characters' : '字' }}</small><div class="button-row inline"><button class="button secondary" type="button" data-testid="training-recommended" :disabled="coachBusy" @click="requestCoach(true)">{{ coachBusy ? (isEnglish ? 'Generating…' : '生成中…') : (coachResult && showRecommended ? (isEnglish ? 'Regenerate' : '重新生成') : (isEnglish ? 'Recommended answer' : '查看推荐回答')) }}</button><button class="button primary" type="submit" data-testid="training-submit">{{ isEnglish ? 'Analyze answer' : '分析回答' }}</button></div></div>
           <p v-if="coachMessage" class="speech-message" role="status">{{ coachMessage }}</p>
         </form>
 
         <article class="panel feedback-panel" aria-live="polite">
           <div v-if="coachBusy && !submitted" class="feedback-placeholder"><div>AI</div><h3>{{ isEnglish ? 'Generating…' : '正在生成推荐回答…' }}</h3><p>{{ isEnglish ? 'The result will appear in this panel.' : '生成完成后会直接显示在当前区域，不需要向下滚动。' }}</p></div>
           <div v-else-if="coachResult && showRecommended && !submitted" class="coach-inline-result" data-testid="training-coach-result">
-            <div class="coach-inline-heading"><div><span class="eyebrow">{{ coachResult.source === 'ai' ? 'AI 1V1 COACH' : 'LOCAL COACH' }}</span><h3>{{ isEnglish ? 'Recommended answer' : '推荐回答' }}</h3></div><span class="status-badge completed">{{ coachResult.source === 'ai' ? '远程 AI' : '本地降级' }}</span></div>
+            <div class="coach-inline-heading"><div><span class="eyebrow">{{ coachResult.source === 'ai' ? 'AI 1V1 COACH' : 'LOCAL COACH' }}</span><h3>{{ isEnglish ? 'Recommended answer' : '推荐回答' }}</h3></div><span class="status-badge completed">{{ coachResult.source === 'ai' ? (isEnglish ? 'Remote AI' : '远程 AI') : (isEnglish ? 'Local fallback' : '本地降级') }}</span></div>
             <p class="recommended-answer" data-testid="training-recommended-answer">{{ coachResult.recommendedAnswer }}</p>
             <h4>{{ isEnglish ? 'Coach guidance' : '教练建议' }}</h4><p>{{ coachResult.feedback }}</p>
             <h4>{{ isEnglish ? 'Likely follow-up' : '可能追问' }}</h4><p>{{ coachResult.followUpQuestion }}</p>
@@ -304,14 +342,14 @@ function leaveSession(): void {
       </div>
 
       <article v-if="coachResult && showRecommended && submitted" class="panel coach-panel" data-testid="training-coach-result">
-        <div class="coach-heading"><div><span class="eyebrow">{{ coachResult.source === 'ai' ? 'AI PRESSURE INTERVIEWER' : 'LOCAL PRESSURE COACH' }}</span><h3>{{ isEnglish ? 'Answer diagnosis and resume calibration' : '回答拆解与简历同步校准' }}</h3></div><span class="status-badge completed">{{ coachResult.source === 'ai' ? '远程 AI' : '本地降级' }}</span></div>
+        <div class="coach-heading"><div><span class="eyebrow">{{ coachResult.source === 'ai' ? 'AI PRESSURE INTERVIEWER' : 'LOCAL PRESSURE COACH' }}</span><h3>{{ isEnglish ? 'Answer diagnosis and resume calibration' : '回答拆解与简历同步校准' }}</h3></div><span class="status-badge completed">{{ coachResult.source === 'ai' ? (isEnglish ? 'Remote AI' : '远程 AI') : (isEnglish ? 'Local fallback' : '本地降级') }}</span></div>
         <div class="diagnosis-grid">
-          <section><h4>证据不足</h4><ul><li v-for="item in coachResult.diagnosis.evidenceGaps" :key="item">{{ item }}</li></ul></section>
-          <section><h4>结构 / 表达漏洞</h4><ul><li v-for="item in coachResult.diagnosis.logicIssues" :key="item">{{ item }}</li></ul></section>
-          <section class="challenge"><h4>面试官最可能继续质疑</h4><p>{{ coachResult.diagnosis.interviewerChallenge }}</p></section>
+          <section><h4>{{ isEnglish ? 'Evidence gaps' : '证据不足' }}</h4><ul><li v-for="item in coachResult.diagnosis.evidenceGaps" :key="item">{{ item }}</li></ul></section>
+          <section><h4>{{ isEnglish ? 'Structure / expression issues' : '结构 / 表达漏洞' }}</h4><ul><li v-for="item in coachResult.diagnosis.logicIssues" :key="item">{{ item }}</li></ul></section>
+          <section class="challenge"><h4>{{ isEnglish ? 'Most likely interviewer challenge' : '面试官最可能继续质疑' }}</h4><p>{{ coachResult.diagnosis.interviewerChallenge }}</p></section>
         </div>
-        <div class="coach-grid"><div><h4>{{ isEnglish ? 'Coach feedback' : '教练建议' }}</h4><p>{{ coachResult.feedback }}</p><h4>{{ isEnglish ? 'Next dynamic follow-up' : '下一轮动态追问' }}</h4><p>{{ coachResult.followUpQuestion }}</p></div><div><h4>基于真实证据整理的 STAR 回答</h4><p class="recommended-answer" data-testid="training-recommended-answer">{{ coachResult.diagnosis.starAnswer || coachResult.recommendedAnswer }}</p><small>缺失信息必须保留“【需要本人补充】”，不要为让回答好看而编造数据。</small></div></div>
-        <div class="resume-sync"><div><h4>是否需要同步修改简历</h4><p>{{ coachResult.diagnosis.resumeSuggestion }}</p></div><button v-if="selectedProject && coachResult.diagnosis.resumeUpdateNeeded" class="button primary" type="button" data-testid="sync-resume-advice" :disabled="syncBusy" @click="syncResumeSuggestion">{{ syncBusy ? '同步中…' : '同步到项目经历' }}</button><span v-else class="status-badge completed">无需结构性修改</span></div>
+        <div class="coach-grid"><div><h4>{{ isEnglish ? 'Coach feedback' : '教练建议' }}</h4><p>{{ coachResult.feedback }}</p><h4>{{ isEnglish ? 'Next dynamic follow-up' : '下一轮动态追问' }}</h4><p>{{ coachResult.followUpQuestion }}</p></div><div><h4>{{ isEnglish ? 'Evidence-based STAR answer' : '基于真实证据整理的 STAR 回答' }}</h4><p class="recommended-answer" data-testid="training-recommended-answer">{{ coachResult.diagnosis.starAnswer || coachResult.recommendedAnswer }}</p><small>{{ isEnglish ? 'Keep missing facts marked as [CANDIDATE MUST ADD EVIDENCE]. Never invent data to make the answer sound stronger.' : '缺失信息必须保留“【需要本人补充】”，不要为让回答好看而编造数据。' }}</small></div></div>
+        <div class="resume-sync"><div><h4>{{ isEnglish ? 'Resume update' : '是否需要同步修改简历' }}</h4><p>{{ coachResult.diagnosis.resumeSuggestion }}</p></div><button v-if="selectedProject && coachResult.diagnosis.resumeUpdateNeeded" class="button primary" type="button" data-testid="sync-resume-advice" :disabled="syncBusy" @click="syncResumeSuggestion">{{ syncBusy ? (isEnglish ? 'Syncing…' : '同步中…') : (isEnglish ? 'Sync to project' : '同步到项目经历') }}</button><span v-else class="status-badge completed">{{ isEnglish ? 'No structural update needed' : '无需结构性修改' }}</span></div>
       </article>
     </div>
   </section>
