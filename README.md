@@ -22,7 +22,7 @@ Interview OS 是一款本地优先、AI 增强的 Windows 一体化求职工作�
 - 招聘平台真实抓取、MCP、公司官网监控和外部推送仍需逐连接器验收。
 - 自动沟通和自动投递保持关闭，任何外部写操作必须由用户确认。
 - Obsidian 当前为单向导出；导入、文件监听和双向同步属于后续阶段。
-- v0.5.0 Windows 安装版和便携版尚未重新打包，仓库中的既有安装包属于 v0.4.0。
+- v0.5.0 Windows 安装版和便携版已完成构建与冒烟测试：`release/Interview-OS-0.5.0-x64-setup.exe`、`release/Interview-OS-0.5.0-x64-portable.exe`。
 
 ## 开发命令
 
@@ -74,7 +74,7 @@ python scripts/build_product_pdf.py
 - 15 个测试文件、55 个单元与集成测试通过。
 - Vue/TypeScript 类型检查与生产构建通过。
 - Electron 主流程和全模块字体一致性 E2E 通过。
-- 打包应用冒烟测试仍待 v0.5.0 产物生成后执行。
+- 打包应用冒烟测试已通过，产物大小与 SHA-256 见 [v0.5.0 测试报告](./docs/testing/test-report-v0.5.0.md)。
 
 ## 数据安全
 
