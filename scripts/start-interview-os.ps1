@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$Executable = Join-Path $ProjectRoot 'release\Interview-OS-0.4.0-x64-portable.exe'
+$Executable = Join-Path $ProjectRoot 'release\Interview-OS-0.5.0-x64-portable.exe'
 $DataDirectory = Join-Path $ProjectRoot 'data\interview-os'
 
 if (-not (Test-Path -LiteralPath $Executable)) {
