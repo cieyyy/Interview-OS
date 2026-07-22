@@ -10,9 +10,10 @@
 - [x] Job Center desktop responsive layout
 - [x] Source copy updated for list-detail completion
 - [x] Typecheck and unit/integration tests
-- [ ] Windows NSIS package verification
-- [ ] Windows portable package verification
-- [ ] v0.7.0 SHA-256 manifest
+- [x] Windows NSIS package generation
+- [x] Windows portable package generation
+- [x] Packaged application smoke test
+- [x] v0.7.0 SHA-256 manifest
 - [ ] GitHub Release artifact publishing
 
 ## v0.7.0 Verified Baseline
@@ -20,7 +21,8 @@
 - JavaScript syntax checks: browser extension content, background and popup scripts passed.
 - Type checking: passed.
 - Unit/integration tests: 81 passed across 18 test files.
-- Packaged application test remains pending.
+- Windows packaging: setup and portable artifacts generated.
+- Packaged application smoke test: passed.
 
 ## v0.6.0 Product OS Upgrade
 
