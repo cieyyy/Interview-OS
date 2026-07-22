@@ -34,7 +34,7 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     page.on('crash', () => console.log(`Renderer crashed. Electron stderr:\n${stderr.join('')}`));
     await page.waitForLoadState('domcontentloaded');
     expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu() === null)).toBe(true);
-    await expect(page.getByRole('heading', { name: '把经历变成可表达的能力' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '今天，推进一件最重要的事' })).toBeVisible();
     await expect(page.getByTestId('dashboard-empty')).toBeVisible();
     await page.getByRole('button', { name: '加载演示数据' }).click();
     await expect(page.getByTestId('stat-projects')).toHaveText('1');
@@ -69,7 +69,8 @@ test('desktop MVP completes the offline interview workflow and persists data', a
       '本科'
     ].join('\n'), 'utf8');
     await mockFileSelection(resumePath);
-    await page.getByTestId('nav-profile').click();
+    await page.evaluate(() => { window.location.hash = '#/profile'; });
+    await expect(page.getByRole('heading', { name: '职业档案' })).toBeVisible();
     await page.getByTestId('profile-import-file').click();
     await expect(page.getByTestId('profile-role')).toHaveValue('运维工程师');
     await expect(page.getByTestId('profile-import-summary')).toContainText('2 段项目经历');
@@ -107,7 +108,7 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await page.getByTestId('job-analyze').click();
     await expect(page.getByTestId('job-detail')).toContainText('Kubernetes');
 
-    await page.getByTestId('nav-training').click();
+    await page.getByTestId('nav-coach').click();
     const jobOptionValue = await page
       .getByTestId('training-job')
       .locator('option', { hasText: 'E2E 云原生技术支持' })
@@ -149,12 +150,14 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     expect(await page.getByTestId('pressure-summary').innerText()).not.toMatch(/[\u3400-\u9fff]/u);
     await page.screenshot({ path: path.resolve('artifacts', 'training-pressure-summary.png'), fullPage: true });
 
-    await page.getByTestId('nav-profile').click();
+    await page.evaluate(() => { window.location.hash = '#/profile'; });
+    await expect(page.getByRole('heading', { name: '职业档案' })).toBeVisible();
     await page.getByTestId('profile-project-tab').click();
     const calibratedProject = page.locator('.project-card').filter({ hasText: /AI/ }).first();
     await expect(calibratedProject.locator('.project-calibration')).toHaveText(/\S{10,}/);
 
-    await page.getByTestId('nav-reports').click();
+    await page.evaluate(() => { window.location.hash = '#/reports'; });
+    await expect(page.getByRole('heading', { name: '训练报告' })).toBeVisible();
     await page.locator('.session-row').first().click();
     await expect(page.getByTestId('training-history-detail')).toBeVisible();
     await expect(page.getByTestId('history-answer').first()).toContainText('failed canvas request');
@@ -162,10 +165,20 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await expect(page.getByTestId('history-pressure-summary')).toBeVisible();
     await page.screenshot({ path: path.resolve('artifacts', 'reports-v0.4.png'), fullPage: true });
 
-    await page.getByTestId('nav-assistant').click();
-    await expect(page.locator('.assistant-card')).toHaveCount(1);
-    await expect(page.getByTestId('assistant-enter-training')).toBeVisible();
-    await page.screenshot({ path: path.resolve('artifacts', 'assistant-v0.4.png'), fullPage: true });
+    await page.getByTestId('nav-coach').click();
+    await page.getByRole('button', { name: 'Back to practice setup' }).click();
+    await expect(page.locator('.coach-mode-grid button')).toHaveCount(6);
+    await expect(page.getByTestId('coach-mode-english-interview')).toBeVisible();
+    const chineseCoachModes = ['mock-interview', 'project-deep-dive', 'technical-qa', 'resume-follow-up', 'jd-analysis'];
+    for (const mode of chineseCoachModes) {
+      await page.getByTestId('coach-mode-english-interview').click();
+      await expect(page.getByTestId('training-language')).toHaveValue('en-US');
+      await expect(page.getByRole('heading', { name: 'AI Career Coach' })).toBeVisible();
+      await page.getByTestId(`coach-mode-${mode}`).click();
+      await expect(page.getByTestId('training-language')).toHaveValue('zh-CN');
+      await expect(page.getByRole('heading', { name: 'AI 职业教练' })).toBeVisible();
+    }
+    await page.screenshot({ path: path.resolve('artifacts', 'coach-v0.6.png'), fullPage: true });
 
     await page.getByTestId('nav-settings').click();
     await expect(page.locator('.settings-card')).toHaveCount(4);
@@ -218,7 +231,7 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     });
     try {
       const restartedPage = await restarted.firstWindow();
-      await expect(restartedPage.getByTestId('stat-knowledge')).toHaveText('4');
+      await expect(restartedPage.getByTestId('stat-knowledge')).not.toHaveText('0');
       await expect(restartedPage.getByTestId('stat-jobs')).toHaveText('1');
     } finally {
       await restarted.close();

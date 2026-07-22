@@ -1,9 +1,11 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceService } from './workspace-service';
 import { AtomicWorkspaceRepository } from '../storage/workspace-repository';
+import { createDefaultJobSources, createEmptyState } from '../../shared/domain';
+import { validateWorkspaceState } from '../../shared/validation';
 
 let root = '';
 let service: WorkspaceService;
@@ -16,6 +18,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
   await rm(root, { recursive: true, force: true });
 });
 
@@ -35,7 +38,27 @@ describe('WorkspaceService', () => {
     });
     expect(analyzed.attempts).toHaveLength(1);
     await service.finalizeTraining({ sessionId: session.id, questionId: question.id, answer: analyzed.attempts[0].answer });
-    expect(service.getState().knowledge.some((item) => item.type === 'answer')).toBe(true);
+    const answerKnowledge = service.getState().knowledge.find((item) => item.type === 'answer');
+    expect(answerKnowledge?.contentMarkdown).toContain('## 优化回答');
+    expect(answerKnowledge?.contentMarkdown).toContain('## 不足');
+    expect(answerKnowledge?.contentMarkdown).toContain('## 复习任务');
+    expect(answerKnowledge?.reviewAt).toBeTruthy();
+    expect(service.getState().coachSessions[0].linkedTrainingSessionId).toBe(session.id);
+    expect(service.getState().knowledge.filter((item) => item.projectIds.includes(project.id))).toHaveLength(1);
+    expect(service.getState().knowledge.some((item) => item.jobIds.includes(job.id) && item.type === 'jd')).toBe(true);
+  });
+
+  it('does not create knowledge as a hidden side effect of saving a project', async () => {
+    const project = await service.saveProject({
+      name: '可编辑项目', role: '运维', background: '本地项目', responsibilities: '负责发布', results: '完成上线', techStack: ['Docker']
+    });
+    expect(project.relatedKnowledgeIds).toHaveLength(0);
+    expect(service.getState().knowledge).toHaveLength(0);
+    const saved = await service.saveProject({ ...project, results: '完成上线并通过接口验证' });
+    expect(saved.results).toBe('完成上线并通过接口验证');
+    expect(saved.relatedKnowledgeIds).toHaveLength(0);
+    expect(service.getState().knowledge).toHaveLength(0);
+    expect(service.getState().projects.find((item) => item.id === project.id)?.results).toContain('接口验证');
   });
 
   it('runs a dynamic pressure interview and produces a final risk summary', async () => {
@@ -129,6 +152,31 @@ describe('WorkspaceService', () => {
     expect(service.getState().syncedJobs[0].status).toBe('saved');
   });
 
+  it('moves synced jobs to trash, restores them and deletes them permanently', async () => {
+    const token = service.getState().settings.jobSyncToken;
+    await service.ingestSyncedJobs({
+      token,
+      sourceSite: 'boss',
+      sourceName: 'BOSS 直聘',
+      pageUrl: 'https://www.zhipin.com/web/geek/job?query=Linux',
+      jobs: [{
+        externalId: 'trash-001',
+        sourceUrl: 'https://www.zhipin.com/job_detail/trash-001.html',
+        title: 'Linux 运维工程师',
+        company: '示例科技',
+        location: '成都高新区',
+        salaryRange: '8K-12K',
+        description: '负责 Linux 服务器运维、监控告警和现场交付支持。'
+      }]
+    });
+
+    const id = service.getState().syncedJobs[0].id;
+    expect((await service.updateSyncedJobStatus(id, 'trashed')).status).toBe('trashed');
+    expect((await service.updateSyncedJobStatus(id, 'new')).status).toBe('new');
+    expect((await service.deleteSyncedJobPermanently(id)).deleted).toBe(true);
+    expect(service.getState().syncedJobs.some((job) => job.id === id)).toBe(false);
+  });
+
   it('rejects a browser sync batch with the wrong local token', async () => {
     await expect(service.ingestSyncedJobs({
       token: 'wrong-token',
@@ -138,7 +186,7 @@ describe('WorkspaceService', () => {
     })).rejects.toThrow('岗位同步令牌无效');
   });
 
-  it('persists connector, filter and alert framework configuration with auditable dry runs', async () => {
+  it('marks planned connectors as not connected instead of claiming validation', async () => {
     const source = await service.saveJobSource({
       name: '目标公司官网', platform: '官网', connectorType: 'company-careers', status: 'planned', enabled: false,
       endpoint: 'https://careers.example.com', intervalMinutes: 60, capabilities: ['search', 'detail', 'change-tracking'],
@@ -152,8 +200,88 @@ describe('WorkspaceService', () => {
     const run = await service.validateJobSource(source.id);
 
     expect(alert.presetId).toBe(preset.id);
-    expect(run.status).toBe('dry-run');
+    expect(run.status).toBe('warning');
+    expect(run.message).toContain('尚未接入');
     expect(service.getState().jobSyncRuns[0].sourceId).toBe(source.id);
+  });
+
+  it('performs a real health request for the local browser bridge', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ok: true, service: 'Interview OS Job Sync Bridge'
+    }), { status: 200, headers: { 'content-type': 'application/json' } })));
+    const source = service.getState().jobSources.find((item) => item.connectorType === 'browser-extension');
+    expect(source).toBeTruthy();
+    const run = await service.validateJobSource(source!.id);
+    expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:19426/health', expect.objectContaining({ method: 'GET' }));
+    expect(run.status).toBe('success');
+    expect(run.message).toContain('真实连通');
+    expect(run.message).toContain('不代表招聘网站抓取已成功');
+  });
+
+  it('ships configured source entries for visible-site adapters and reserved connectors', async () => {
+    const sources = createDefaultJobSources('2026-07-22T00:00:00.000Z');
+    const ids = sources.map((item) => item.id);
+
+    expect(ids).toEqual(expect.arrayContaining([
+      'source-browser-extension',
+      'source-boss-visible',
+      'source-zhaopin-visible',
+      'source-51job-visible',
+      'source-lagou-visible',
+      'source-liepin-visible',
+      'source-liepin-mcp',
+      'source-boss-mcp',
+      'source-company-careers',
+      'source-google-jobs-api',
+      'source-linkedin-api',
+      'source-custom-scraper',
+      'source-generic-import'
+    ]));
+    expect(sources.filter((item) => item.status === 'planned')).toHaveLength(0);
+  });
+
+  it('merges new default source entries into an older workspace without dropping custom sources', async () => {
+    const oldState = createEmptyState();
+    oldState.jobSources = [
+      {
+        id: 'source-liepin-mcp', name: '猎聘官方 MCP', platform: '猎聘', connectorType: 'mcp',
+        status: 'planned', enabled: false, endpoint: '', intervalMinutes: 30, capabilities: ['search'],
+        notes: '', createdAt: '2026-07-20T00:00:00.000Z', updatedAt: '2026-07-20T00:00:00.000Z'
+      },
+      {
+        id: 'custom-source', name: '自定义源', platform: '内部', connectorType: 'scraper',
+        status: 'configured', enabled: false, endpoint: 'http://127.0.0.1:19000/jobs', intervalMinutes: 30,
+        capabilities: ['search'], notes: '用户自定义', createdAt: '2026-07-20T00:00:00.000Z', updatedAt: '2026-07-20T00:00:00.000Z'
+      }
+    ];
+
+    const migrated = validateWorkspaceState(oldState);
+
+    expect(migrated.jobSources.some((item) => item.id === 'source-zhaopin-visible')).toBe(true);
+    expect(migrated.jobSources.find((item) => item.id === 'source-liepin-mcp')?.status).toBe('configured');
+    expect(migrated.jobSources.find((item) => item.id === 'custom-source')?.notes).toBe('用户自定义');
+    expect(migrated.jobFilterPresets.some((item) => item.id === 'preset-product-ai-saas')).toBe(true);
+    expect(migrated.jobAlertRules.some((item) => item.presetId === 'preset-product-ai-saas' && item.channel === 'in-app')).toBe(true);
+  });
+
+  it('validates a visible recruitment-site adapter without pretending to scrape in the background', async () => {
+    const source = service.getState().jobSources.find((item) => item.id === 'source-zhaopin-visible');
+    expect(source).toBeTruthy();
+
+    const run = await service.validateJobSource(source!.id);
+
+    expect(run.status).toBe('dry-run');
+    expect(run.message).toContain('页面适配器配置已就绪');
+    expect(run.message).toContain('不会绕过登录、验证码或平台风控');
+  });
+
+  it('binds an application to the resume made for the same JD', async () => {
+    const job = await service.analyzeJob({ title: '平台工程师', rawText: 'Kubernetes' });
+    const otherJob = await service.analyzeJob({ title: '数据工程师', rawText: 'SQL' });
+    const resume = await service.saveResumeVariant({ name: '平台定向版', jobId: job.id, headline: '平台工程师', summary: '平台经验', highlights: [], projectIds: [], skillIds: [] });
+    const saved = await service.saveApplication({ jobId: job.id, resumeVariantId: resume.id, title: job.title });
+    expect(saved.resumeVariantId).toBe(resume.id);
+    await expect(service.saveApplication({ jobId: otherJob.id, resumeVariantId: resume.id, title: otherJob.title })).rejects.toThrow('投递简历与目标 JD 不匹配');
   });
 
   it('runs the local career agent and persists company watch and career memory', async () => {
@@ -172,5 +300,34 @@ describe('WorkspaceService', () => {
     expect(memory.tags).toContain('偏好');
     expect(checked.openJobs).toBe(1);
     expect(checked.lastCheckedAt).toBeTruthy();
+  });
+
+  it('checks watched company career pages on startup and imports matching structured jobs', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(`
+      <html><head><script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "JobPosting",
+        "title": "Kubernetes 技术支持工程师",
+        "url": "https://careers.example.com/jobs/k8s-support",
+        "datePosted": "2026-07-22",
+        "description": "负责 Kubernetes、Docker、Linux 和客户技术支持。",
+        "hiringOrganization": { "@type": "Organization", "name": "示例云科技" },
+        "jobLocation": { "@type": "Place", "address": { "addressLocality": "杭州" } },
+        "baseSalary": { "@type": "MonetaryAmount", "value": { "minValue": 20, "maxValue": 30, "unitText": "K" } }
+      }
+      </script></head></html>
+    `, { status: 200, headers: { 'content-type': 'text/html' } })));
+    await service.saveCompanyWatch({ name: '示例云科技', careerUrl: 'https://careers.example.com', priority: 'focus' });
+
+    const runs = await service.checkCompanyWatchesOnStartup();
+    const state = service.getState();
+
+    expect(runs).toHaveLength(1);
+    expect(runs[0].added).toBe(1);
+    expect(state.syncedJobs[0].title).toBe('Kubernetes 技术支持工程师');
+    expect(state.syncedJobs[0].sourceSite).toBe('company-careers');
+    expect(state.companyWatches[0].openJobs).toBe(1);
+    expect(state.jobSyncRuns[0].message).toContain('启动自动检测完成');
   });
 });

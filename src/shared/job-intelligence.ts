@@ -135,7 +135,7 @@ function calculateTrust(input: SyncedJobInput, text: string): { score: number; f
   const flags: string[] = [];
   if (!input.company?.trim()) { score -= 20; flags.push('公司信息缺失'); }
   if (!input.description?.trim() || input.description.trim().length < 60) { score -= 15; flags.push('JD 信息不完整'); }
-  if (!input.location?.trim()) { score -= 6; flags.push('工作地点缺失'); }
+  if (!input.location?.trim()) score -= 3;
   if (!input.salaryRange?.trim()) score -= 4;
   if (!input.postedAt) { score -= 5; flags.push('发布时间未识别'); }
   for (const rule of riskRules) {
@@ -172,7 +172,7 @@ function calculateProfileMatch(
   title: string,
   text: string,
   skills: string[],
-  context: { education: string; experience: string; salaryKnown: boolean; postedAt?: string }
+  context: { education: string; experience: string; salaryKnown: boolean; locationKnown: boolean; postedAt?: string }
 ): { score: number; dimensions: JobMatchDimensions; reasons: string[] } {
   const haystack = normalized(`${title} ${text}`);
   const roleCandidates = unique([profile.currentRole, ...profile.targetRoles]);
@@ -188,7 +188,7 @@ function calculateProfileMatch(
     skills: profileSkills.length ? Math.round(matchedSkills.length / profileSkills.length * 100) : 60,
     experience: experienceScore(profile.yearsExperience, context.experience),
     education: educationScore(profile.education, context.education),
-    location: 60,
+    location: context.locationKnown ? 70 : 45,
     salary: context.salaryKnown ? 70 : 45,
     freshness: freshnessDays <= 7 ? 100 : freshnessDays <= 30 ? 80 : freshnessDays <= 90 ? 55 : 25
   };
@@ -214,7 +214,7 @@ export function analyzeSyncedJob(input: SyncedJobInput, profile: CareerProfile):
   const trust = calculateTrust(input, text);
   const biasFlags = biasRules.filter((rule) => rule.pattern.test(text)).map((rule) => rule.label);
   const match = calculateProfileMatch(profile, input.title, input.description ?? '', skills, {
-    education, experience, salaryKnown: salary.min != null, postedAt: input.postedAt
+    education, experience, salaryKnown: salary.min != null, locationKnown: Boolean(input.location?.trim()), postedAt: input.postedAt
   });
   const qualitySignals = [input.title, input.company, input.location, input.salaryRange, input.description, input.postedAt];
   const qualityScore = Math.round(qualitySignals.filter(Boolean).length / qualitySignals.length * 100);
@@ -255,11 +255,33 @@ export function jobMatchesPreset(job: {
   return true;
 }
 
-export function buildGreetingDraft(profile: CareerProfile, job: { title: string; company?: string; description?: string; skills?: string[] }): string {
+export interface GreetingResumeContext {
+  name: string;
+  headline?: string;
+  summary?: string;
+  highlights?: string[];
+  projectNames?: string[];
+  skillNames?: string[];
+}
+
+export function buildGreetingDraft(
+  profile: CareerProfile,
+  job: { title: string; company?: string; description?: string; skills?: string[] },
+  resume?: GreetingResumeContext
+): string {
   const jobText = normalized(`${job.title} ${job.description ?? ''}`);
-  const matchedSkills = profile.skills.map((item) => item.name).filter((skill) => jobText.includes(normalized(skill)));
+  const availableSkills = [...new Set([...profile.skills.map((item) => item.name), ...(resume?.skillNames ?? [])])];
+  const matchedSkills = availableSkills.filter((skill) => jobText.includes(normalized(skill)) || job.skills?.some((item) => normalized(item) === normalized(skill)));
   const direction = profile.currentRole || profile.targetRoles[0] || '相关岗位';
   const evidence = matchedSkills.length ? `，具备 ${matchedSkills.slice(0, 3).join('、')} 的实践基础` : '';
   const company = job.company?.trim() ? `贵司 ${job.company.trim()} 的` : '';
-  return `您好，我关注到${company}${job.title}岗位。我目前的职业方向是${direction}${evidence}，希望进一步了解岗位重点和团队情况。我会基于真实项目经历准备针对性简历，期待与您沟通。`;
+  if (!resume) {
+    return `您好，我关注到${company}${job.title}岗位。我目前的职业方向是${direction}${evidence}，希望进一步了解岗位重点和团队情况。`;
+  }
+  const resumeEvidence = resume.highlights?.find(Boolean)
+    || resume.projectNames?.slice(0, 2).join('、')
+    || resume.summary?.trim()
+    || resume.headline?.trim();
+  const evidenceText = resumeEvidence ? `，其中重点呈现了${resumeEvidence.slice(0, 80)}` : '';
+  return `您好，我关注到${company}${job.title}岗位。我目前的职业方向是${direction}${evidence}。我已为该岗位准备定向简历《${resume.name}》${evidenceText}。如方便，希望进一步沟通岗位重点和团队情况。`;
 }

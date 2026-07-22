@@ -1,0 +1,158 @@
+[
+  {
+    "module": "工作台",
+    "file": "01-dashboard.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "AI 职业教练",
+    "file": "02-ai-career-coach.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "简历工坊",
+    "file": "03-resume-studio.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "岗位中心",
+    "file": "04-job-center.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "JD 分析",
+    "file": "05-jd-analysis.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "知识空间",
+    "file": "06-knowledge-space.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "项目资产库",
+    "file": "07-project-assets.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "求职管道",
+    "file": "08-application-pipeline.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "公司关注",
+    "file": "09-company-watch.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "能力成长",
+    "file": "10-capability-growth.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "数据中心",
+    "file": "11-data-center.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  },
+  {
+    "module": "设置",
+    "file": "12-settings.png",
+    "invalidFontSizes": [],
+    "paddingLeft": 24,
+    "paddingRight": 24,
+    "headerMarginBottom": 24,
+    "horizontalOverflow": false,
+    "viewport": {
+      "width": 1424,
+      "height": 861
+    }
+  }
+]

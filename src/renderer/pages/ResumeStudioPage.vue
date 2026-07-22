@@ -7,7 +7,7 @@ import { buildResumeDraft } from '../../shared/career-engine';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
 
-const { store, saveResumeVariant } = useWorkspace();
+const { store, saveResumeVariant, copyText } = useWorkspace();
 const route = useRoute();
 const editing = ref(false);
 const copyMessage = ref('');
@@ -79,8 +79,8 @@ function resumeMarkdown(): string {
 }
 
 async function copyMarkdown(): Promise<void> {
-  await navigator.clipboard.writeText(resumeMarkdown());
-  copyMessage.value = 'Markdown 已复制';
+  const copied = await copyText(resumeMarkdown(), 'Markdown 已复制');
+  copyMessage.value = copied?.copied ? 'Markdown 已复制' : '复制失败';
 }
 </script>
 
@@ -118,7 +118,7 @@ async function copyMarkdown(): Promise<void> {
         </form>
 
         <article class="resume-sheet" data-testid="resume-preview">
-          <div class="resume-sheet-actions"><span v-if="targetJob"><Target :size="15" />{{ targetJob.company || '目标公司' }} · {{ targetJob.title }}</span><span v-else>通用求职版本</span><button class="icon-command" type="button" title="复制 Markdown" aria-label="复制 Markdown" @click="copyMarkdown"><Copy :size="16" /></button></div>
+          <div class="resume-sheet-actions"><span v-if="targetJob"><Target :size="15" />{{ targetJob.company || '目标公司' }} · {{ targetJob.title }}</span><span v-else>通用求职版本</span><button class="icon-command" type="button" title="复制 Markdown" aria-label="复制 Markdown" data-testid="resume-copy-markdown" @click="copyMarkdown"><Copy :size="16" /></button></div>
           <header><span class="eyebrow">CURRICULUM VITAE</span><h2>{{ store.workspace?.profile.nickname || '候选人' }}</h2><p>{{ form.headline || '填写求职标题' }}</p></header>
           <section><h3>个人摘要</h3><p>{{ form.summary || '根据目标岗位，说明经验年限、能力边界和可以验证的价值。' }}</p></section>
           <section><h3>核心技能</h3><div class="resume-skill-row"><span v-for="skill in previewSkills" :key="skill.id">{{ skill.name }}</span><small v-if="!previewSkills.length">尚未选择技能</small></div></section>

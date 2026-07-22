@@ -1,0 +1,17 @@
+:root {
+  --font-family-ui: "Inter", "Microsoft YaHei UI", "PingFang SC", "Microsoft YaHei", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  --font-family-code: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --text-page-title: 24px;
+  --text-module-title: 18px;
+  --text-card-title: 16px;
+  --text-body: 14px;
+  --text-supporting: 12px;
+  --line-title: 1.3;
+  --line-body: 1.6;
+  --weight-regular: 400;
+  --weight-medium: 600;
+  --weight-bold: 700;
+}
+
+html { font-family: var(--font-family-ui); }
+code, pre, kbd, samp { font-family: var(--font-family-code); }

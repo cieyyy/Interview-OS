@@ -17,12 +17,19 @@ import type {
   ProviderInput,
   ResumeVariantInput,
   TrainingAnswerInput,
+  TrainingSession,
+  CoachSession,
   TrainingCoachResult,
   TrainingFinalizeInput,
   TrainingStartInput,
   WorkspaceState
 } from './domain';
-import { createDefaultJobSources, createDefaultObsidianSettings } from './domain';
+import {
+  createDefaultJobAlertRules,
+  createDefaultJobFilterPresets,
+  createDefaultJobSources,
+  createDefaultObsidianSettings
+} from './domain';
 import { analyzeSyncedJob } from './job-intelligence';
 
 export class ValidationError extends Error {
@@ -52,6 +59,12 @@ export function cleanTags(value: unknown): string[] {
   return [...new Set(value.map((tag) => cleanText(tag, '标签', 40)).filter(Boolean))].slice(0, 30);
 }
 
+export function cleanEntityIds(value: unknown): string[] {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw new ValidationError('关联 ID 必须是数组');
+  return [...new Set(value.map((id) => cleanText(id, '关联 ID', 160)).filter(Boolean))].slice(0, 200);
+}
+
 export function validateHttpUrl(value: string, field = 'URL'): string {
   const cleaned = cleanText(value, field, 2_000);
   let url: URL;
@@ -72,8 +85,10 @@ export function validateKnowledgeInput(input: KnowledgeInput): KnowledgeInput {
     'learning-plan', 'company-research', 'retrospective', 'note'
   ];
   const allowedStatus = ['draft', 'learning', 'mastered', 'review'];
+  const allowedVisibility = ['private', 'publish-ready', 'public'];
   if (!input || !allowedTypes.includes(input.type)) throw new ValidationError('知识类型无效');
   if (input.status && !allowedStatus.includes(input.status)) throw new ValidationError('知识状态无效');
+  if (input.visibility && !allowedVisibility.includes(input.visibility)) throw new ValidationError('知识可见性无效');
   return {
     ...input,
     id: input.id ? cleanText(input.id, 'ID', 80) : undefined,
@@ -81,7 +96,45 @@ export function validateKnowledgeInput(input: KnowledgeInput): KnowledgeInput {
     contentMarkdown: cleanText(input.contentMarkdown, '内容', 100_000),
     tags: cleanTags(input.tags),
     source: input.source ? cleanText(input.source, '来源', 200, false) : '',
-    relatedIds: cleanTags(input.relatedIds)
+    relatedIds: cleanEntityIds(input.relatedIds),
+    jobIds: cleanEntityIds(input.jobIds),
+    projectIds: cleanEntityIds(input.projectIds),
+    skillNames: cleanTags(input.skillNames),
+    visibility: input.visibility ?? 'private'
+  };
+}
+
+function coachSessionFromTraining(session: TrainingSession): CoachSession {
+  const messages: CoachSession['messages'] = [];
+  for (const question of session.questions ?? []) {
+    messages.push({
+      id: `coach-question-${question.id}`,
+      role: 'coach',
+      content: question.text,
+      createdAt: session.createdAt
+    });
+    for (const attempt of (session.attempts ?? []).filter((item) => item.questionId === question.id)) {
+      messages.push({
+        id: `coach-answer-${attempt.id}`,
+        role: 'user',
+        content: attempt.answer,
+        createdAt: attempt.createdAt
+      });
+    }
+  }
+  return {
+    id: `coach-${session.id}`,
+    mode: session.language === 'en-US' ? 'english-interview' : 'mock-interview',
+    title: session.title,
+    status: session.status,
+    targetJobId: session.jobId,
+    projectIds: session.projectId ? [session.projectId] : [],
+    messages,
+    answers: session.attempts ?? [],
+    report: session.summary,
+    linkedTrainingSessionId: session.id,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt
   };
 }
 
@@ -100,7 +153,7 @@ export function validateProjectInput(input: ProjectInput): ProjectInput {
     challenges: cleanText(input.challenges ?? '', '问题难点', 20_000, false),
     results: cleanText(input.results, '项目结果', 20_000),
     techStack: cleanTags(input.techStack),
-    relatedKnowledgeIds: cleanTags(input.relatedKnowledgeIds),
+    relatedKnowledgeIds: cleanEntityIds(input.relatedKnowledgeIds),
     pitch30: cleanText(input.pitch30 ?? '', '30 秒版本', 5_000, false),
     pitch90: cleanText(input.pitch90 ?? '', '90 秒版本', 15_000, false),
     deepDive: cleanText(input.deepDive ?? '', '深入版本', 30_000, false),
@@ -138,6 +191,7 @@ export function validateJobApplicationInput(input: JobApplicationInput): JobAppl
     ...input,
     id: input.id ? cleanText(input.id, 'ID', 80) : undefined,
     jobId: input.jobId ? cleanText(input.jobId, 'JD ID', 80) : undefined,
+    resumeVariantId: input.resumeVariantId ? cleanText(input.resumeVariantId, '简历版本 ID', 80) : undefined,
     company: cleanText(input.company ?? '', '公司名称', 160, false),
     title: cleanText(input.title ?? '', '岗位名称', 160, false),
     source: cleanText(input.source ?? '', '职位来源', 120, false),
@@ -167,8 +221,8 @@ export function validateResumeVariantInput(input: ResumeVariantInput): ResumeVar
     headline: cleanText(input.headline, '求职标题', 240),
     summary: cleanText(input.summary, '个人摘要', 10_000),
     highlights: cleanStringList(input.highlights, '简历亮点', 20),
-    projectIds: cleanTags(input.projectIds),
-    skillIds: cleanTags(input.skillIds),
+    projectIds: cleanEntityIds(input.projectIds),
+    skillIds: cleanEntityIds(input.skillIds),
     status: input.status ?? 'draft'
   };
 }
@@ -201,18 +255,66 @@ export function validateJobSourceInput(input: JobSourceInput): JobSourceInput {
   if (!input || !connectorTypes.includes(input.connectorType)) throw new ValidationError('连接器类型无效');
   if (input.status && !statuses.includes(input.status)) throw new ValidationError('数据源状态无效');
   const capabilities = (input.capabilities ?? []).filter((item): item is JobSourceCapability => allowedCapabilities.includes(item));
+  const endpoint = cleanText(input.endpoint ?? '', '连接器地址', 500, false);
+  const pseudoEndpointAllowed =
+    (input.connectorType === 'browser-extension' && endpoint.startsWith('browser-extension://')) ||
+    (input.connectorType === 'company-careers' && endpoint.startsWith('company-watches://'));
   return {
     ...input,
     id: input.id ? cleanText(input.id, '数据源 ID', 80) : undefined,
     name: cleanText(input.name, '数据源名称', 120),
     platform: cleanText(input.platform, '平台名称', 160),
-    endpoint: input.endpoint ? validateHttpUrl(input.endpoint, '连接器地址') : '',
+    endpoint: endpoint && !pseudoEndpointAllowed ? validateHttpUrl(endpoint, '连接器地址') : endpoint,
     intervalMinutes: Math.max(0, Math.min(10_080, Number(input.intervalMinutes ?? 30))),
     capabilities: [...new Set(capabilities)],
     notes: cleanText(input.notes ?? '', '数据源说明', 2_000, false),
     enabled: Boolean(input.enabled),
     status: input.status ?? 'planned'
   };
+}
+
+function mergeDefaultJobSources(existingSources: WorkspaceState['jobSources'] | undefined): WorkspaceState['jobSources'] {
+  const defaults = createDefaultJobSources();
+  if (!Array.isArray(existingSources)) return defaults;
+  const existingById = new Map(existingSources.map((source) => [source.id, source]));
+  const mergedDefaults = defaults.map((source) => {
+    const existing = existingById.get(source.id);
+    if (!existing) return source;
+    const shouldUpgradePlanned = existing.status === 'planned' && source.status !== 'planned';
+    return {
+      ...source,
+      ...existing,
+      status: shouldUpgradePlanned ? source.status : existing.status,
+      enabled: shouldUpgradePlanned ? source.enabled : existing.enabled,
+      endpoint: existing.endpoint || source.endpoint,
+      intervalMinutes: existing.intervalMinutes ?? source.intervalMinutes,
+      capabilities: existing.capabilities?.length ? existing.capabilities : source.capabilities,
+      notes: existing.notes || source.notes,
+      createdAt: existing.createdAt || source.createdAt,
+      updatedAt: existing.updatedAt || source.updatedAt
+    };
+  });
+  const defaultIds = new Set(defaults.map((source) => source.id));
+  const customSources = existingSources.filter((source) => !defaultIds.has(source.id));
+  return [...mergedDefaults, ...customSources];
+}
+
+function mergeDefaultJobFilterPresets(existingPresets: WorkspaceState['jobFilterPresets'] | undefined): WorkspaceState['jobFilterPresets'] {
+  const defaults = createDefaultJobFilterPresets();
+  if (!Array.isArray(existingPresets)) return defaults;
+  const existingById = new Map(existingPresets.map((preset) => [preset.id, preset]));
+  const mergedDefaults = defaults.map((preset) => existingById.get(preset.id) ?? preset);
+  const defaultIds = new Set(defaults.map((preset) => preset.id));
+  return [...mergedDefaults, ...existingPresets.filter((preset) => !defaultIds.has(preset.id))];
+}
+
+function mergeDefaultJobAlertRules(existingRules: WorkspaceState['jobAlertRules'] | undefined): WorkspaceState['jobAlertRules'] {
+  const defaults = createDefaultJobAlertRules();
+  if (!Array.isArray(existingRules)) return defaults;
+  const existingById = new Map(existingRules.map((rule) => [rule.id, rule]));
+  const mergedDefaults = defaults.map((rule) => existingById.get(rule.id) ?? rule);
+  const defaultIds = new Set(defaults.map((rule) => rule.id));
+  return [...mergedDefaults, ...existingRules.filter((rule) => !defaultIds.has(rule.id))];
 }
 
 export function validateJobFilterPresetInput(input: JobFilterPresetInput): JobFilterPresetInput {
@@ -313,9 +415,14 @@ export function validateTrainingStartInput(input: TrainingStartInput): TrainingS
   const mode = input?.mode ?? 'standard';
   if (!['zh-CN', 'en-US'].includes(language)) throw new ValidationError('训练语言无效');
   if (!['standard', 'pressure'].includes(mode)) throw new ValidationError('训练模式无效');
+  const coachModes = ['mock-interview', 'project-deep-dive', 'technical-qa', 'resume-follow-up', 'jd-analysis', 'english-interview'];
+  if (input?.coachMode && !coachModes.includes(input.coachMode)) throw new ValidationError('职业教练模式无效');
   return {
     jobId: input?.jobId ? cleanText(input.jobId, 'JD ID', 80) : undefined,
     projectId: input?.projectId ? cleanText(input.projectId, '项目 ID', 80) : undefined,
+    projectIds: cleanEntityIds(input?.projectIds),
+    resumeId: input?.resumeId ? cleanText(input.resumeId, '简历 ID', 80) : undefined,
+    coachMode: input?.coachMode ?? (language === 'en-US' ? 'english-interview' : 'mock-interview'),
     type: input?.type ?? 'mixed',
     difficulty: input?.difficulty ?? 'medium',
     questionCount: count,
@@ -450,7 +557,7 @@ export function migrateWorkspaceState(value: unknown): WorkspaceState {
   if (!value || typeof value !== 'object') throw new ValidationError('工作区状态格式错误');
   const state = value as Record<string, unknown>;
   const version = Number(state.schemaVersion ?? 1);
-  if (![1, 2].includes(version)) throw new ValidationError('不支持的工作区版本');
+  if (![1, 2, 3].includes(version)) throw new ValidationError('不支持的工作区版本');
   const settings = state.settings as Record<string, unknown> | undefined;
   if (settings) {
     const currentObsidian = settings.obsidian as ObsidianIntegrationSettings | undefined;
@@ -459,13 +566,35 @@ export function migrateWorkspaceState(value: unknown): WorkspaceState {
   state.obsidianSyncIndex = Array.isArray(state.obsidianSyncIndex) ? state.obsidianSyncIndex : [];
   state.obsidianSyncConflicts = Array.isArray(state.obsidianSyncConflicts) ? state.obsidianSyncConflicts : [];
   state.obsidianSyncRuns = Array.isArray(state.obsidianSyncRuns) ? state.obsidianSyncRuns : [];
-  state.schemaVersion = 2;
+  const knowledge = Array.isArray(state.knowledge) ? state.knowledge as Array<Record<string, unknown>> : [];
+  for (const item of knowledge) {
+    item.relatedIds = Array.isArray(item.relatedIds) ? item.relatedIds : [];
+    item.jobIds = Array.isArray(item.jobIds) ? item.jobIds : [];
+    item.projectIds = Array.isArray(item.projectIds) ? item.projectIds : [];
+    item.skillNames = Array.isArray(item.skillNames) ? item.skillNames : [];
+    item.visibility = ['private', 'publish-ready', 'public'].includes(String(item.visibility)) ? item.visibility : 'private';
+  }
+  const trainingSessions = Array.isArray(state.trainingSessions) ? state.trainingSessions as TrainingSession[] : [];
+  state.coachSessions = Array.isArray(state.coachSessions)
+    ? state.coachSessions
+    : trainingSessions.map(coachSessionFromTraining);
+  const migrationHistory = Array.isArray(state.migrationHistory) ? state.migrationHistory as Array<Record<string, unknown>> : [];
+  if (version < 3 && !migrationHistory.some((item) => Number(item.fromVersion) === version && Number(item.toVersion) === 3)) {
+    migrationHistory.unshift({
+      id: `migration-${version}-3-${Date.now()}`,
+      fromVersion: version,
+      toVersion: 3,
+      migratedAt: new Date().toISOString()
+    });
+  }
+  state.migrationHistory = migrationHistory;
+  state.schemaVersion = 3;
   return state as unknown as WorkspaceState;
 }
 
 export function validateWorkspaceState(value: unknown): WorkspaceState {
   const state = migrateWorkspaceState(value) as Partial<WorkspaceState>;
-  if (state.schemaVersion !== 2) throw new ValidationError('不支持的工作区版本');
+  if (state.schemaVersion !== 3) throw new ValidationError('不支持的工作区版本');
   if (!state.profile || !Array.isArray(state.projects) || !Array.isArray(state.knowledge)) {
     throw new ValidationError('工作区缺少必要数据');
   }
@@ -498,14 +627,16 @@ export function validateWorkspaceState(value: unknown): WorkspaceState {
     job.qualityScore ??= intelligence.qualityScore;
     job.lifecycleStatus ??= 'active';
   }
-  if (!Array.isArray(state.jobSources)) state.jobSources = createDefaultJobSources();
+  state.jobSources = mergeDefaultJobSources(state.jobSources);
   if (!Array.isArray(state.jobSyncRuns)) state.jobSyncRuns = [];
-  if (!Array.isArray(state.jobFilterPresets)) state.jobFilterPresets = [];
-  if (!Array.isArray(state.jobAlertRules)) state.jobAlertRules = [];
+  state.jobFilterPresets = mergeDefaultJobFilterPresets(state.jobFilterPresets);
+  state.jobAlertRules = mergeDefaultJobAlertRules(state.jobAlertRules);
   if (!Array.isArray(state.careerSearchPlans)) state.careerSearchPlans = [];
   if (!Array.isArray(state.careerAgentRuns)) state.careerAgentRuns = [];
   if (!Array.isArray(state.careerMemory)) state.careerMemory = [];
   if (!Array.isArray(state.companyWatches)) state.companyWatches = [];
+  if (!Array.isArray(state.coachSessions)) state.coachSessions = [];
+  if (!Array.isArray(state.migrationHistory)) state.migrationHistory = [];
   if (!Array.isArray(state.obsidianSyncIndex)) state.obsidianSyncIndex = [];
   if (!Array.isArray(state.obsidianSyncConflicts)) state.obsidianSyncConflicts = [];
   if (!Array.isArray(state.obsidianSyncRuns)) state.obsidianSyncRuns = [];

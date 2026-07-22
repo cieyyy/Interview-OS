@@ -7,6 +7,7 @@ import type {
   CareerSearchPlanInput,
   CompanyWatch,
   CompanyWatchInput,
+  CoachSession,
   JobAlertRule,
   JobAlertRuleInput,
   JobApplication,
@@ -60,6 +61,118 @@ import {
 } from '../../shared/validation';
 import type { AtomicWorkspaceRepository } from '../storage/workspace-repository';
 
+function upsertCoachSession(
+  draft: WorkspaceState,
+  session: TrainingSession,
+  context?: Pick<CoachSession, 'mode' | 'resumeId' | 'projectIds'>
+): void {
+  const existingIndex = draft.coachSessions.findIndex((item) => item.linkedTrainingSessionId === session.id);
+  const existing = existingIndex >= 0 ? draft.coachSessions[existingIndex] : undefined;
+  const messages: CoachSession['messages'] = [];
+  for (const question of session.questions) {
+    messages.push({ id: `coach-question-${question.id}`, role: 'coach', content: question.text, createdAt: session.createdAt });
+    for (const attempt of session.attempts.filter((item) => item.questionId === question.id)) {
+      messages.push({ id: `coach-answer-${attempt.id}`, role: 'user', content: attempt.answer, createdAt: attempt.createdAt });
+    }
+  }
+  const entity: CoachSession = {
+    id: existing?.id ?? randomUUID(),
+    mode: context?.mode ?? existing?.mode ?? (session.language === 'en-US' ? 'english-interview' : 'mock-interview'),
+    title: session.title,
+    status: session.status,
+    targetJobId: session.jobId,
+    resumeId: context?.resumeId ?? existing?.resumeId,
+    projectIds: context?.projectIds ?? existing?.projectIds ?? (session.projectId ? [session.projectId] : []),
+    messages,
+    answers: session.attempts,
+    report: session.summary,
+    linkedTrainingSessionId: session.id,
+    createdAt: existing?.createdAt ?? session.createdAt,
+    updatedAt: session.updatedAt
+  };
+  if (existingIndex >= 0) draft.coachSessions[existingIndex] = entity;
+  else draft.coachSessions.unshift(entity);
+}
+
+function upsertGeneratedKnowledge(draft: WorkspaceState, entity: KnowledgeItem): void {
+  const index = draft.knowledge.findIndex((item) => item.id === entity.id);
+  if (index >= 0) draft.knowledge[index] = { ...entity, createdAt: draft.knowledge[index].createdAt };
+  else draft.knowledge.unshift(entity);
+}
+
+function flattenJsonLd(value: unknown): Array<Record<string, unknown>> {
+  if (!value || typeof value !== 'object') return [];
+  if (Array.isArray(value)) return value.flatMap(flattenJsonLd);
+  const record = value as Record<string, unknown>;
+  const nested = [
+    ...flattenJsonLd(record['@graph']),
+    ...flattenJsonLd(record.itemListElement)
+  ];
+  return [record, ...nested];
+}
+
+function textValue(value: unknown): string {
+  if (typeof value === 'string') return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (typeof value === 'number') return String(value);
+  return '';
+}
+
+function locationValue(value: unknown): string {
+  if (Array.isArray(value)) return value.map(locationValue).filter(Boolean).join(' / ');
+  if (!value || typeof value !== 'object') return '';
+  const address = (value as Record<string, unknown>).address;
+  if (!address || typeof address !== 'object') return '';
+  const record = address as Record<string, unknown>;
+  return [record.addressLocality, record.addressRegion, record.addressCountry].map(textValue).filter(Boolean).join(' ');
+}
+
+function salaryValue(value: unknown): string {
+  if (!value || typeof value !== 'object') return '';
+  const record = value as Record<string, unknown>;
+  const amount = record.value;
+  if (amount && typeof amount === 'object') {
+    const nested = amount as Record<string, unknown>;
+    const min = textValue(nested.minValue);
+    const max = textValue(nested.maxValue);
+    const unit = textValue(nested.unitText);
+    if (min || max) return [min && max ? `${min}-${max}` : min || max, unit].filter(Boolean).join(' ');
+    return textValue(nested.value);
+  }
+  return textValue(amount);
+}
+
+function extractStructuredCompanyJobs(html: string, pageUrl: string, fallbackCompany: string): JobSyncBatchInput['jobs'] {
+  const scripts = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/giu)];
+  const jobs: JobSyncBatchInput['jobs'] = [];
+  for (const [, content] of scripts) {
+    try {
+      const parsed = JSON.parse(content.trim());
+      for (const item of flattenJsonLd(parsed)) {
+        const type = item['@type'];
+        const types = Array.isArray(type) ? type.map(String) : [String(type ?? '')];
+        if (!types.some((entry) => entry.toLocaleLowerCase() === 'jobposting')) continue;
+        const sourceUrl = new URL(textValue(item.url) || pageUrl, pageUrl).toString();
+        const company = item.hiringOrganization && typeof item.hiringOrganization === 'object'
+          ? textValue((item.hiringOrganization as Record<string, unknown>).name)
+          : fallbackCompany;
+        jobs.push({
+          externalId: textValue((item.identifier as Record<string, unknown> | undefined)?.value) || sourceUrl,
+          sourceUrl,
+          title: textValue(item.title),
+          company: company || fallbackCompany,
+          location: locationValue(item.jobLocation),
+          salaryRange: salaryValue(item.baseSalary),
+          description: textValue(item.description),
+          postedAt: textValue(item.datePosted) || undefined
+        });
+      }
+    } catch {
+      // Ignore invalid third-party JSON-LD blocks.
+    }
+  }
+  return jobs.filter((item) => item.title && item.sourceUrl).slice(0, 100);
+}
+
 export class WorkspaceService {
   constructor(private readonly repository: AtomicWorkspaceRepository) {}
 
@@ -104,6 +217,10 @@ export class WorkspaceService {
         status: valid.status ?? 'draft',
         source: valid.source ?? '',
         relatedIds: valid.relatedIds ?? [],
+        jobIds: valid.jobIds ?? [],
+        projectIds: valid.projectIds ?? [],
+        skillNames: valid.skillNames ?? [],
+        visibility: valid.visibility ?? 'private',
         reviewAt: valid.reviewAt,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now
@@ -163,6 +280,22 @@ export class WorkspaceService {
     return this.repository.update((draft) => {
       const entity = analyzeJob(valid, draft);
       draft.jobs.unshift(entity);
+      upsertGeneratedKnowledge(draft, {
+        id: `job-knowledge-${entity.id}`,
+        type: 'jd',
+        title: `${entity.company ? `${entity.company} · ` : ''}${entity.title}｜JD 分析`,
+        contentMarkdown: `# ${entity.title}\n\n## 技能与能力要求\n\n${entity.requirements.map((item) => `- **${item.label}**：${item.priority} / ${item.matchStatus}${item.evidenceSummary ? ` / ${item.evidenceSummary}` : ''}`).join('\n')}\n\n## 面试重点与准备任务\n\n${entity.tasks.map((item) => `- [${item.completed ? 'x' : ' '}] ${item.title}`).join('\n')}`,
+        tags: ['JD 分析', entity.title],
+        status: 'review',
+        source: '自动生成 · JD 分析',
+        relatedIds: [entity.id],
+        jobIds: [entity.id],
+        projectIds: [],
+        skillNames: entity.requirements.filter((item) => item.category === 'technology').map((item) => item.label),
+        visibility: 'private',
+        createdAt: entity.createdAt,
+        updatedAt: entity.updatedAt
+      });
       return entity;
     });
   }
@@ -172,6 +305,9 @@ export class WorkspaceService {
     return this.repository.update((draft) => {
       const job = valid.jobId ? draft.jobs.find((item) => item.id === valid.jobId) : undefined;
       if (valid.jobId && !job) throw new Error('未找到关联的 JD');
+      const resume = valid.resumeVariantId ? draft.resumeVariants.find((item) => item.id === valid.resumeVariantId) : undefined;
+      if (valid.resumeVariantId && !resume) throw new Error('未找到投递使用的简历版本');
+      if (job && resume?.jobId && resume.jobId !== job.id) throw new Error('投递简历与目标 JD 不匹配');
       const now = nowIso();
       const existingIndex = valid.id ? draft.applications.findIndex((item) => item.id === valid.id) : -1;
       const existing = existingIndex >= 0 ? draft.applications[existingIndex] : undefined;
@@ -191,6 +327,7 @@ export class WorkspaceService {
       const entity: JobApplication = {
         id: existing?.id ?? randomUUID(),
         jobId: job?.id,
+        resumeVariantId: resume?.id,
         company,
         title,
         source: valid.source ?? '',
@@ -318,17 +455,68 @@ export class WorkspaceService {
   }
 
   async validateJobSource(id: string): Promise<JobSyncRun> {
+    const sourceSnapshot = this.repository.getState().jobSources.find((item) => item.id === id);
+    if (!sourceSnapshot) throw new Error('未找到岗位数据源');
+    const startedAt = Date.now();
+    let status: JobSyncRun['status'] = 'warning';
+    let message = '尚未接入可运行适配器，未发起网络请求。';
+
+    if (sourceSnapshot.connectorType === 'import') {
+      status = 'dry-run';
+      message = '导入字段与配置结构已检查；尚未选择或解析实际文件。';
+    } else if (sourceSnapshot.status === 'planned') {
+      status = 'warning';
+      message = '尚未接入可运行适配器，未发起网络请求。';
+    } else if (sourceSnapshot.connectorType === 'browser-extension' && sourceSnapshot.endpoint.startsWith('browser-extension://')) {
+      status = 'dry-run';
+      message = '页面适配器配置已就绪；请在对应招聘站点打开已登录且可见的岗位页后，通过浏览器扩展同步。不会绕过登录、验证码或平台风控。';
+    } else if (sourceSnapshot.connectorType === 'company-careers') {
+      status = 'dry-run';
+      message = '公司官网监控框架已配置；会基于公司关注清单检测公开招聘页和 JobPosting 结构化数据，匹配求职意向后进入岗位中心。';
+    } else if (sourceSnapshot.connectorType === 'api' && !sourceSnapshot.enabled) {
+      status = 'dry-run';
+      message = '结构化 API 入口已配置；启用前需填写合法 API Key 或聚合服务授权，当前未发起真实请求。';
+    } else if (sourceSnapshot.connectorType === 'mcp' && sourceSnapshot.endpoint.startsWith('https://')) {
+      status = 'dry-run';
+      message = '官方 MCP 端点契约已配置；正式调用需要用户授权 Key，并遵守平台频率限制。当前未携带凭据请求。';
+    } else if (sourceSnapshot.endpoint) {
+      const endpoint = sourceSnapshot.connectorType === 'browser-extension'
+        ? `${sourceSnapshot.endpoint.replace(/\/$/u, '')}/health`
+        : sourceSnapshot.endpoint;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3_000);
+      try {
+        const response = await fetch(endpoint, { method: 'GET', signal: controller.signal });
+        if (sourceSnapshot.connectorType === 'browser-extension' && response.ok) {
+          const body = await response.json().catch(() => ({})) as { ok?: boolean; service?: string };
+          if (body.ok && body.service === 'Interview OS Job Sync Bridge') {
+            status = 'success';
+            message = '真实连通：本机 Bridge /health 返回有效响应。仅证明桥接服务可用，不代表招聘网站抓取已成功。';
+          } else {
+            message = '端点可以访问，但响应不是 Interview OS Bridge；未验证岗位同步能力。';
+          }
+        } else if (response.ok) {
+          status = 'success';
+          message = `真实网络请求返回 HTTP ${response.status}；端点可访问，但尚未执行登录、搜索或岗位抓取。`;
+        } else {
+          message = `端点已响应 HTTP ${response.status}；网络可达，但鉴权或功能尚未通过。`;
+        }
+      } catch (error) {
+        status = 'failed';
+        message = `真实连通失败：${error instanceof Error && error.name === 'AbortError' ? '请求 3 秒超时' : error instanceof Error ? error.message : '未知网络错误'}。`;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
     return this.repository.update((draft) => {
       const source = draft.jobSources.find((item) => item.id === id);
       if (!source) throw new Error('未找到岗位数据源');
       const now = nowIso();
-      const contractReady = source.connectorType === 'browser-extension' || source.connectorType === 'import' || Boolean(source.endpoint);
       const run: JobSyncRun = {
-        id: randomUUID(), sourceId: source.id, sourceName: source.name, status: 'dry-run', fetched: 0, added: 0, updated: 0,
-        durationMs: 0,
-        message: contractReady
-          ? '连接器配置结构完整；本次仅验证框架，未访问外部招聘平台。'
-          : '连接器契约已预留，正式启用前需要配置端点或适配器。',
+        id: randomUUID(), sourceId: source.id, sourceName: source.name, status, fetched: 0, added: 0, updated: 0,
+        durationMs: Date.now() - startedAt,
+        message,
         createdAt: now, updatedAt: now
       };
       draft.jobSyncRuns.unshift(run);
@@ -442,6 +630,142 @@ export class WorkspaceService {
     });
   }
 
+  async checkCompanyWatchesOnStartup(): Promise<JobSyncRun[]> {
+    const companies = this.repository.getState().companyWatches
+      .filter((item) => item.status === 'watching' && item.careerUrl);
+    const runs: JobSyncRun[] = [];
+    for (const company of companies) {
+      const started = Date.now();
+      const now = nowIso();
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch(company.careerUrl, {
+          method: 'GET',
+          redirect: 'follow',
+          signal: controller.signal,
+          headers: { accept: 'text/html,application/xhtml+xml,application/ld+json;q=0.9,*/*;q=0.8' }
+        }).finally(() => clearTimeout(timeout));
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const html = await response.text();
+        const parsedJobs = extractStructuredCompanyJobs(html, company.careerUrl, company.name);
+        const run = await this.repository.update((draft) => {
+          const current = draft.companyWatches.find((item) => item.id === company.id);
+          if (!current) throw new Error('未找到关注公司');
+          let added = 0;
+          let updated = 0;
+          let accepted = 0;
+          for (const item of parsedJobs) {
+            const intelligence = analyzeSyncedJob(item, draft.profile);
+            if (intelligence.matchScore < 60) continue;
+            accepted += 1;
+            const fingerprint = createHash('sha256')
+              .update(`company-careers|${current.id}|${item.externalId || item.sourceUrl}`)
+              .digest('hex');
+            const existingIndex = draft.syncedJobs.findIndex((job) => job.fingerprint === fingerprint);
+            if (existingIndex >= 0) {
+              const existing = draft.syncedJobs[existingIndex];
+              const changed = Boolean(item.description && item.description !== existing.description)
+                || item.title !== existing.title
+                || (item.salaryRange ?? '') !== existing.salaryRange;
+              draft.syncedJobs[existingIndex] = {
+                ...existing,
+                sourceUrl: item.sourceUrl,
+                title: item.title,
+                company: item.company || current.name,
+                location: item.location ?? existing.location,
+                salaryRange: item.salaryRange ?? existing.salaryRange,
+                description: item.description || existing.description,
+                ...intelligence,
+                lifecycleStatus: changed ? 'changed' : 'active',
+                postedAt: item.postedAt ?? existing.postedAt,
+                lastSeenAt: now,
+                seenCount: existing.seenCount + 1,
+                updatedAt: now
+              };
+              updated += 1;
+              continue;
+            }
+            draft.syncedJobs.unshift({
+              id: randomUUID(),
+              externalId: item.externalId || fingerprint.slice(0, 20),
+              fingerprint,
+              sourceSite: 'company-careers',
+              sourceName: `${current.name} 招聘官网`,
+              sourceUrl: item.sourceUrl,
+              title: item.title,
+              company: item.company || current.name,
+              location: item.location ?? '',
+              salaryRange: item.salaryRange ?? '',
+              description: item.description ?? '',
+              ...intelligence,
+              lifecycleStatus: 'new',
+              postedAt: item.postedAt,
+              capturedAt: now,
+              lastSeenAt: now,
+              seenCount: 1,
+              status: 'new',
+              createdAt: now,
+              updatedAt: now
+            });
+            added += 1;
+          }
+          const relatedJobs = draft.syncedJobs.filter((item) => item.company && (item.company.includes(current.name) || current.name.includes(item.company)));
+          current.lastCheckedAt = now;
+          current.openJobs = relatedJobs.filter((item) => item.lifecycleStatus !== 'closed').length;
+          current.newJobs = relatedJobs.filter((item) => item.lifecycleStatus === 'new').length;
+          current.changedJobs = relatedJobs.filter((item) => item.lifecycleStatus === 'changed').length;
+          current.updatedAt = now;
+          const run: JobSyncRun = {
+            id: randomUUID(),
+            sourceId: current.id,
+            sourceName: `${current.name} 招聘官网`,
+            status: parsedJobs.length ? 'success' : 'warning',
+            fetched: parsedJobs.length,
+            added,
+            updated,
+            durationMs: Date.now() - started,
+            message: parsedJobs.length
+              ? `启动自动检测完成：发现 ${parsedJobs.length} 个结构化岗位，${accepted} 个匹配求职意向，新增 ${added} 个，更新 ${updated} 个。`
+              : '启动自动检测完成：页面未发现标准 JobPosting 结构化岗位。',
+            createdAt: now,
+            updatedAt: now
+          };
+          draft.jobSyncRuns.unshift(run);
+          draft.jobSyncRuns = draft.jobSyncRuns.slice(0, 200);
+          return run;
+        });
+        runs.push(run);
+      } catch (error) {
+        const run = await this.repository.update((draft) => {
+          const current = draft.companyWatches.find((item) => item.id === company.id);
+          if (current) {
+            current.lastCheckedAt = now;
+            current.updatedAt = now;
+          }
+          const run: JobSyncRun = {
+            id: randomUUID(),
+            sourceId: company.id,
+            sourceName: `${company.name} 招聘官网`,
+            status: 'failed',
+            fetched: 0,
+            added: 0,
+            updated: 0,
+            durationMs: Date.now() - started,
+            message: `启动自动检测失败：${error instanceof Error ? error.message : '未知错误'}`,
+            createdAt: now,
+            updatedAt: now
+          };
+          draft.jobSyncRuns.unshift(run);
+          draft.jobSyncRuns = draft.jobSyncRuns.slice(0, 200);
+          return run;
+        });
+        runs.push(run);
+      }
+    }
+    return runs;
+  }
+
   async ingestSyncedJobs(input: JobSyncBatchInput): Promise<{ added: number; updated: number; total: number }> {
     const valid = validateJobSyncBatchInput(input);
     const state = this.repository.getState();
@@ -525,13 +849,21 @@ export class WorkspaceService {
   }
 
   async updateSyncedJobStatus(id: string, status: SyncedJobStatus): Promise<SyncedJob> {
-    if (!['new', 'saved', 'ignored'].includes(status)) throw new Error('同步岗位状态无效');
+    if (!['new', 'saved', 'ignored', 'trashed'].includes(status)) throw new Error('同步岗位状态无效');
     return this.repository.update((draft) => {
       const item = draft.syncedJobs.find((job) => job.id === id);
       if (!item) throw new Error('未找到同步岗位');
       item.status = status;
       item.updatedAt = nowIso();
       return item;
+    });
+  }
+
+  async deleteSyncedJobPermanently(id: string): Promise<{ deleted: boolean }> {
+    return this.repository.update((draft) => {
+      const before = draft.syncedJobs.length;
+      draft.syncedJobs = draft.syncedJobs.filter((job) => job.id !== id);
+      return { deleted: draft.syncedJobs.length < before };
     });
   }
 
@@ -559,12 +891,29 @@ export class WorkspaceService {
     const valid = validateTrainingStartInput(input);
     return this.repository.update((draft) => {
       const job = valid.jobId ? draft.jobs.find((item) => item.id === valid.jobId) : undefined;
-      const project = valid.projectId ? draft.projects.find((item) => item.id === valid.projectId) : undefined;
+      const selectedProjectId = valid.projectId ?? valid.projectIds?.[0];
+      const project = selectedProjectId ? draft.projects.find((item) => item.id === selectedProjectId) : undefined;
+      const resume = valid.resumeId ? draft.resumeVariants.find((item) => item.id === valid.resumeId) : undefined;
       if (valid.jobId && !job) throw new Error('未找到选择的 JD');
-      if (valid.projectId && !project) throw new Error('未找到选择的项目');
+      if (selectedProjectId && !project) throw new Error('未找到选择的项目');
+      if (valid.resumeId && !resume) throw new Error('未找到选择的简历版本');
       const now = nowIso();
       const english = valid.language === 'en-US';
       const englishJobTitle = job?.title && !/[\u3400-\u9fff]/u.test(job.title) ? job.title : 'Target Role';
+      const questions = generateQuestions(valid, draft, job, project);
+      if (valid.coachMode === 'resume-follow-up' && resume && questions.length) {
+        const safeHeadline = english && /[\u3400-\u9fff]/u.test(resume.headline) ? 'the selected resume statement' : (resume.headline || resume.name);
+        questions[0] = {
+          ...questions[0],
+          type: 'behavioral',
+          text: english
+            ? `Your resume positions you around "${safeHeadline}". Which specific experience proves this claim, and what did you personally deliver?`
+            : `你的简历将“${resume.headline || resume.name}”作为核心定位。哪段具体经历能证明这一点？请说明你本人完成的动作和可验证结果。`,
+          rationale: english ? 'Verify that a resume claim is supported by truthful, interview-ready evidence.' : '验证简历核心表述是否有真实、可追问的证据。',
+          targetKeywords: resume.skillIds.map((id) => draft.profile.skills.find((item) => item.id === id)?.name).filter((item): item is string => Boolean(item)),
+          relatedIds: [...new Set([...questions[0].relatedIds, resume.id])]
+        };
+      }
       const session: TrainingSession = {
         id: randomUUID(),
         jobId: job?.id,
@@ -573,7 +922,7 @@ export class WorkspaceService {
           ? `${englishJobTitle} Interview Practice · ${new Date().toLocaleDateString('en-US')}`
           : `${job?.title ?? '综合'}面试训练 · ${new Date().toLocaleDateString('zh-CN')}`,
         status: 'active',
-        questions: generateQuestions(valid, draft, job, project),
+        questions,
         attempts: [],
         currentQuestionIndex: 0,
         language: valid.language ?? 'zh-CN',
@@ -583,6 +932,11 @@ export class WorkspaceService {
         updatedAt: now
       };
       draft.trainingSessions.unshift(session);
+      upsertCoachSession(draft, session, {
+        mode: valid.coachMode ?? (valid.language === 'en-US' ? 'english-interview' : 'mock-interview'),
+        resumeId: valid.resumeId,
+        projectIds: valid.projectIds?.length ? valid.projectIds : (project ? [project.id] : [])
+      });
       return session;
     });
   }
@@ -606,6 +960,7 @@ export class WorkspaceService {
         updatedAt: now
       });
       session.updatedAt = now;
+      upsertCoachSession(draft, session);
       return session;
     });
   }
@@ -651,18 +1006,36 @@ export class WorkspaceService {
       }
       session.updatedAt = now;
 
+      const english = session.language === 'en-US';
+      const reviewAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const optimizedAnswer = valid.coach?.diagnosis.starAnswer || valid.coach?.recommendedAnswer || valid.answer;
+      const gaps = diagnosis.evidenceGaps.length ? diagnosis.evidenceGaps : scored.feedback;
+      const improvements = [
+        ...diagnosis.logicIssues,
+        diagnosis.resumeSuggestion,
+        ...(valid.coach?.feedback ? [valid.coach.feedback] : [])
+      ].filter(Boolean);
+      const contentMarkdown = english
+        ? `# Original answer\n\n${valid.answer}\n\n## Improved answer\n\n${optimizedAnswer}\n\n## Gaps\n\n${gaps.map((item) => `- ${item}`).join('\n')}\n\n## Improvement plan\n\n${improvements.map((item) => `- [ ] ${item}`).join('\n')}\n\n## Review task\n\n- [ ] Answer this question again with truthful evidence: ${currentQuestion.text}`
+        : `# 原回答\n\n${valid.answer}\n\n## 优化回答\n\n${optimizedAnswer}\n\n## 不足\n\n${gaps.map((item) => `- ${item}`).join('\n')}\n\n## 改进方案\n\n${improvements.map((item) => `- [ ] ${item}`).join('\n')}\n\n## 复习任务\n\n- [ ] 使用真实证据重新回答：${currentQuestion.text}`;
       draft.knowledge.unshift({
         id: randomUUID(),
         type: 'answer',
         title: currentQuestion.text.slice(0, 80),
-        contentMarkdown: valid.answer,
+        contentMarkdown,
         tags: ['面试回答', currentQuestion.type],
         status: 'review',
         source: '面试训练',
         relatedIds: [session.id, ...currentQuestion.relatedIds],
+        jobIds: session.jobId ? [session.jobId] : [],
+        projectIds: session.projectId ? [session.projectId] : [],
+        skillNames: currentQuestion.targetKeywords,
+        visibility: 'private',
+        reviewAt,
         createdAt: now,
         updatedAt: now
       });
+      upsertCoachSession(draft, session);
       return session;
     });
   }

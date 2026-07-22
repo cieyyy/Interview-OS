@@ -5,7 +5,6 @@ import ProfilePage from './pages/ProfilePage.vue';
 import JobsPage from './pages/JobsPage.vue';
 import TrainingPage from './pages/TrainingPage.vue';
 import ReportsPage from './pages/ReportsPage.vue';
-import AssistantPage from './pages/AssistantPage.vue';
 import SettingsPage from './pages/SettingsPage.vue';
 import ApplicationsPage from './pages/ApplicationsPage.vue';
 import ResumeStudioPage from './pages/ResumeStudioPage.vue';
@@ -16,8 +15,9 @@ import CareerAgentPage from './pages/CareerAgentPage.vue';
 import CompaniesPage from './pages/CompaniesPage.vue';
 import SkillGraphPage from './pages/SkillGraphPage.vue';
 import DataCenterPage from './pages/DataCenterPage.vue';
+import ProjectAssetsPage from './pages/ProjectAssetsPage.vue';
 
-export default createRouter({
+const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', name: 'dashboard', component: DashboardPage },
@@ -33,9 +33,21 @@ export default createRouter({
     { path: '/applications', name: 'applications', component: ApplicationsPage },
     { path: '/resumes', name: 'resumes', component: ResumeStudioPage },
     { path: '/calendar', name: 'calendar', component: CareerCalendarPage },
-    { path: '/training', name: 'training', component: TrainingPage },
+    { path: '/coach', name: 'coach', component: TrainingPage },
+    { path: '/training', redirect: '/coach' },
     { path: '/reports', name: 'reports', component: ReportsPage },
-    { path: '/assistant', name: 'assistant', component: AssistantPage },
+    { path: '/assistant', redirect: '/coach' },
+    { path: '/projects', name: 'projects', component: ProjectAssetsPage },
     { path: '/settings', name: 'settings', component: SettingsPage }
   ]
 });
+
+router.afterEach(() => {
+  requestAnimationFrame(() => {
+    const main = document.querySelector<HTMLElement>('#main-content');
+    main?.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    main?.focus({ preventScroll: true });
+  });
+});
+
+export default router;

@@ -35,13 +35,15 @@ const store = reactive<{
   loading: boolean;
   error: string;
   notice: string;
+  noticeTone: 'success' | 'info' | 'warning';
   activeSession?: TrainingSession;
   jobSyncStatus?: JobSyncBridgeStatus;
   obsidianStatus?: ObsidianIntegrationStatus;
   obsidianPreview?: ObsidianSyncPreview;
-}>({ loading: false, error: '', notice: '' });
+}>({ loading: false, error: '', notice: '', noticeTone: 'success' });
 
 let initialized = false;
+let startupCompanyCheckStarted = false;
 
 function toIpcPayload<T>(value: T): T {
   // Vue wraps nested form arrays and objects in Proxy instances. Electron IPC
@@ -62,6 +64,7 @@ async function run<T>(operation: () => Promise<T>, notice?: string): Promise<T |
   try {
     const value = await operation();
     if (notice) {
+      store.noticeTone = 'success';
       store.notice = notice;
       window.setTimeout(() => { if (store.notice === notice) store.notice = ''; }, 2500);
     }
@@ -79,6 +82,21 @@ async function refresh(): Promise<void> {
   if (value) store.workspace = value;
 }
 
+async function runStartupCompanyWatchCheck(): Promise<void> {
+  if (startupCompanyCheckStarted) return;
+  startupCompanyCheckStarted = true;
+  const runs = await run(() => unwrap(window.interviewOS.checkCompanyWatchesOnStartup()));
+  if (!runs?.length) return;
+  await refresh();
+  const added = runs.reduce((sum, item) => sum + item.added, 0);
+  const updated = runs.reduce((sum, item) => sum + item.updated, 0);
+  if (added || updated) {
+    store.noticeTone = 'info';
+    store.notice = `公司关注自动检测完成：新增 ${added} 个，更新 ${updated} 个匹配岗位`;
+    window.setTimeout(() => { if (store.notice.includes('公司关注自动检测完成')) store.notice = ''; }, 4500);
+  }
+}
+
 export function useWorkspace() {
   if (!initialized) {
     initialized = true;
@@ -86,6 +104,7 @@ export function useWorkspace() {
     void run(() => unwrap(window.interviewOS.getMeta())).then((value) => {
       if (value) store.meta = value;
     });
+    void runStartupCompanyWatchCheck();
   }
 
   return {
@@ -147,7 +166,12 @@ export function useWorkspace() {
       return value;
     },
     async validateJobSource(id: string) {
-      const value = await run(() => unwrap(window.interviewOS.validateJobSource(id)), '连接器框架验证完成');
+      const value = await run(() => unwrap(window.interviewOS.validateJobSource(id)));
+      if (value) {
+        store.noticeTone = value.status === 'success' ? 'success' : value.status === 'failed' ? 'warning' : 'info';
+        store.notice = value.message;
+        window.setTimeout(() => { if (store.notice === value.message) store.notice = ''; }, 4500);
+      }
       if (value) await refresh();
       return value;
     },
@@ -179,7 +203,11 @@ export function useWorkspace() {
     async refreshJobSyncStatus() {
       const value = await run(() => unwrap(window.interviewOS.getJobSyncStatus()));
       if (value) store.jobSyncStatus = value;
+      await refresh();
       return value;
+    },
+    async copyText(value: string, notice = '已复制') {
+      return run(() => unwrap(window.interviewOS.copyText(value)), notice);
     },
     async promoteSyncedJob(id: string) {
       const value = await run(() => unwrap(window.interviewOS.promoteSyncedJob(id)), '岗位已进入 JD 中心');
@@ -189,6 +217,11 @@ export function useWorkspace() {
     async updateSyncedJobStatus(id: string, status: SyncedJobStatus) {
       const value = await run(() => unwrap(window.interviewOS.updateSyncedJobStatus(id, status)));
       if (value) await refresh();
+      return value;
+    },
+    async deleteSyncedJobPermanently(id: string) {
+      const value = await run(() => unwrap(window.interviewOS.deleteSyncedJobPermanently(id)), '岗位已彻底删除');
+      if (value?.deleted) await refresh();
       return value;
     },
     async startTraining(input: TrainingStartInput) {
@@ -296,6 +329,7 @@ export function useWorkspace() {
       const value = await run(() => unwrap(window.interviewOS.importDocument(target)));
       if (value) {
         const notice = value.mode === 'ai-vision' ? '图片识别完成，请核对后保存' : '文件内容已提取，请核对后保存';
+        store.noticeTone = 'success';
         store.notice = notice;
         window.setTimeout(() => { if (store.notice === notice) store.notice = ''; }, 3000);
       }
@@ -304,6 +338,7 @@ export function useWorkspace() {
     clearMessages() {
       store.error = '';
       store.notice = '';
+      store.noticeTone = 'success';
     }
   };
 }

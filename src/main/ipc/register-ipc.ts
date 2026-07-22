@@ -59,9 +59,11 @@ export function registerIpc(
   ipcMain.handle(IPC.saveCareerMemory, (_event, input) => safe(() => workspace.saveCareerMemory(input)));
   ipcMain.handle(IPC.saveCompanyWatch, (_event, input) => safe(() => workspace.saveCompanyWatch(input)));
   ipcMain.handle(IPC.validateCompanyWatch, (_event, id) => safe(() => workspace.validateCompanyWatch(String(id))));
+  ipcMain.handle(IPC.checkCompanyWatchesOnStartup, () => safe(() => workspace.checkCompanyWatchesOnStartup()));
   ipcMain.handle(IPC.getJobSyncStatus, () => safe(() => jobSync.getStatus()));
   ipcMain.handle(IPC.promoteSyncedJob, (_event, id) => safe(() => workspace.promoteSyncedJob(String(id))));
   ipcMain.handle(IPC.updateSyncedJobStatus, (_event, id, status) => safe(() => workspace.updateSyncedJobStatus(String(id), status)));
+  ipcMain.handle(IPC.deleteSyncedJobPermanently, (_event, id) => safe(() => workspace.deleteSyncedJobPermanently(String(id))));
   ipcMain.handle(IPC.startTraining, (_event, input) => safe(() => workspace.startTraining(input)));
   ipcMain.handle(IPC.submitTraining, (_event, input) => safe(() => workspace.submitTraining(input)));
   ipcMain.handle(IPC.finalizeTraining, (_event, input) => safe(() => workspace.finalizeTraining(input)));
@@ -70,6 +72,10 @@ export function registerIpc(
   ipcMain.handle(IPC.exportMarkdown, () => safe(() => repository.exportMarkdown()));
   ipcMain.handle(IPC.saveProvider, (_event, input) => safe(() => provider.save(input)));
   ipcMain.handle(IPC.testProvider, () => safe(() => provider.testConnection()));
+  ipcMain.handle(IPC.copyText, (_event, value) => safe(() => {
+    clipboard.writeText(String(value ?? ''));
+    return { copied: true };
+  }));
   ipcMain.handle(IPC.importDocument, (event, target) => safe(() => {
     const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
     return documentImport.selectAndImport(parent, String(target) as 'job' | 'profile' | 'knowledge');

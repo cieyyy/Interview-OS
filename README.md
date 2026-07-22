@@ -1,28 +1,34 @@
 # Interview OS
 
-> 当前源码版本：0.5.0
+> 当前源码版本：0.7.0
 
-Interview OS 是一款本地优先、AI 增强的 Windows 一体化求职工作台。它把岗位发现、JD 分析、定向简历、投递管理、面试训练、能力补强和职业知识资产组织在同一个本地工作区中。
+Interview OS 是一款本地优先、AI 增强的 Windows 个人职业 AI 操作系统。它把岗位发现、JD 分析、能力匹配、定向简历、项目资产、AI 职业教练、知识沉淀和投递管理组织在同一个本地工作区中。
 
-## v0.5.0 当前能力
+## v0.7.0 当前能力
 
+- 工作台：围绕今日任务、今日训练、待优化回答、待学习技能和目标岗位组织行动。
+- AI 职业教练：统一原 AI 助手与面试训练，支持模拟面试、项目深挖、技术问答、简历追问、JD 分析和英语面试。
+- 知识空间：内置 Markdown、属性、标签、双向链接、反向链接、关系图和复习任务。
+- 项目资产库：自动沉淀项目介绍、面试问题、故障案例和学习知识。
+- 岗位中心：统一职位池、浏览器岗位同步、列表岗位后台详情补全、标准化、去重、筛选、对比、详情和运行日志。
 - 求职 Agent：把自然语言求职目标转换为搜索计划、筛选条件、推荐岗位和下一步动作。
-- 岗位工作台：统一职位池、浏览器可见岗位同步、标准化、去重、筛选、对比、详情和运行日志。
 - 岗位洞察与公司关注：地区、行业、技能、薪资趋势，以及目标公司招聘时间线和官网入口。
 - 求职管道与日程：收藏、准备、投递、沟通、面试、Offer、截止时间和下一步动作。
 - 简历工坊：根据目标 JD、职业档案、项目和技能证据生成定向简历版本。
 - 能力图谱：区分已验证能力、相关经验和岗位缺口，输出分项匹配与补强路线。
-- 面试训练：中文和全英文模式、语音作答、标准训练、动态压力追问、证据诊断和训练报告。
-- Obsidian Phase 1：连接或创建 Vault，预览并单向导出标准 Markdown、稳定 ID、WikiLinks 和冲突保护。
+- 训练闭环：中文和全英文模式、语音作答、动态压力追问、证据诊断、训练报告和知识复盘。
+- 兼容导出：保留 Obsidian Vault 单向导出，不再作为内置知识体系的前置依赖。
 - 数据中心：字段质量、数据源健康度、标准化输出、报告和推送框架。
 - 本地安全：原子工作区、备份、Markdown 导出、Electron 安全 IPC 和密钥隔离。
 
 ## 当前边界
 
-- 招聘平台真实抓取、MCP、公司官网监控和外部推送仍需逐连接器验收。
+- 招聘平台 MCP、公司官网监控和外部推送仍需逐连接器验收；浏览器插件已支持列表页识别与详情页补全，但各平台选择器仍需持续维护。
 - 自动沟通和自动投递保持关闭，任何外部写操作必须由用户确认。
 - Obsidian 当前为单向导出；导入、文件监听和双向同步属于后续阶段。
-- v0.5.0 Windows 安装版和便携版已完成构建与冒烟测试：`release/Interview-OS-0.5.0-x64-setup.exe`、`release/Interview-OS-0.5.0-x64-portable.exe`。
+develop-v0.7.0
+- v0.7.0 Windows 安装版和便携版尚未生成；生成前不会把源码验证等同于发布产物验证。
+
 
 ## 开发命令
 
@@ -32,6 +38,7 @@ npm run dev
 npm run test
 npm run test:e2e
 npm run build
+npm run capture:ui
 npm run package:win
 ```
 
@@ -42,7 +49,7 @@ python scripts/build_product_docs.py
 python scripts/build_product_pdf.py
 ```
 
-两份脚本均以 `Interview-OS-product-spec-v0.5.0.md` 为唯一内容源，分别生成 DOCX 和 PDF，避免发布文档内容漂移。
+两份脚本均以 `Interview-OS-product-spec-v0.6.0.md` 为唯一内容源，分别生成 DOCX 和 PDF，避免发布文档内容漂移。
 
 ## 浏览器岗位同步
 
@@ -50,15 +57,21 @@ python scripts/build_product_pdf.py
 2. Chrome 打开 `chrome://extensions/` 并启用开发者模式。
 3. 加载仓库中的 `browser-extension/` 目录。
 4. 在扩展中填写软件显示的本机同步令牌。
-5. 打开支持的招聘搜索页，同步当前可见岗位。
+5. 打开支持的招聘搜索页，可选择“同步当前页面”或“列表岗位 + 后台详情补全”。
 
 扩展不读取密码、不导出 Cookie、不绕过验证码，也不会执行沟通或投递。
 
 ## 文档
 
-- [v0.5.0 产品与架构说明](./Interview-OS-product-spec-v0.5.0.md)
-- [v0.5.0 发布说明](./docs/releases/v0.5.0.md)
-- [v0.5.0 测试报告](./docs/testing/test-report-v0.5.0.md)
+- [v0.6.0 产品与架构说明](./Interview-OS-product-spec-v0.6.0.md)
+- [v0.6.0 基线审计](./docs/roadmap/V0.6.0_BASELINE_AUDIT.md)
+- [v0.6.0 系统架构](./docs/architecture/system-design-v0.6.0.md)
+- [v0.6.0 UI 规范](./docs/design/V0.6.0_UI_SPEC.md)
+- [v0.5→v0.6 迁移报告](./docs/migrations/V0.5_TO_V0.6_MIGRATION_REPORT.md)
+- [v0.6.0 发布说明](./docs/releases/v0.6.0.md)
+- [v0.7.0 发布说明](./docs/releases/v0.7.0.md)
+- [v0.6.0 测试报告](./docs/testing/test-report-v0.6.0.md)
+- [v0.6.0 界面截图与视觉审计](./docs/screenshots/v0.6.0/README.md)
 - [使用指南](./docs/user-guide.md)
 - [系统架构](./docs/architecture/system-design.md)
 - [数据设计](./docs/architecture/data-design.md)
@@ -71,10 +84,12 @@ python scripts/build_product_pdf.py
 
 ## 测试基线
 
-- 15 个测试文件、55 个单元与集成测试通过。
+- 18 个测试文件、81 个单元与集成测试通过。
 - Vue/TypeScript 类型检查与生产构建通过。
-- Electron 主流程和全模块字体一致性 E2E 通过。
-- 打包应用冒烟测试已通过，产物大小与 SHA-256 见 [v0.5.0 测试报告](./docs/testing/test-report-v0.5.0.md)。
+
+- Electron 主流程和 12 个主模块字体一致性 E2E 通过。
+- 打包应用冒烟测试仍待 v0.7.0 产物生成后执行。
+
 
 ## 数据安全
 

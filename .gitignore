@@ -15,6 +15,7 @@ playwright-report/
 .env.*
 !.env.example
 artifacts/
+tmp/
 .codex/
 
 # Local workspace data and credentials

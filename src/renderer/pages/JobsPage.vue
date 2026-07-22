@@ -29,7 +29,7 @@ const matchLabel = (value: string) => ({ evidenced: '已有证据', related: '�
 
 <template>
   <section>
-    <PageHeader eyebrow="TARGET" title="JD 中心" description="不是只给匹配分，而是说明每项要求对应的真实证据和缺口。">
+    <PageHeader eyebrow="JD ANALYSIS" title="JD 分析" description="拆解岗位技能、面试重点与学习建议，并说明每项要求对应的真实证据和缺口。">
       <DocumentImportButton target="job" label="上传识别 JD" test-id="job-import-file" @imported="applyImport" />
       <button class="button primary" type="button" data-testid="job-add" @click="showForm = true">导入 JD</button>
     </PageHeader>

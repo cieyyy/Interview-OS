@@ -1,9 +1,9 @@
 {
   "name": "interview-os",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "private": true,
   "author": "Interview OS Team",
-  "description": "Local-first AI-assisted interview knowledge base for Windows",
+  "description": "Local-first personal career AI operating system for Windows",
   "main": "dist-electron/main/main.js",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
     "test:packaged": "playwright test tests/e2e/packaged.spec.ts",
+    "capture:ui": "npm run build && node scripts/capture-ui-screenshots.cjs",
     "audit:resumes": "npm run build:electron && node scripts/audit-resume-import.cjs",
     "package:win": "npm run build && electron-builder --win"
   },
