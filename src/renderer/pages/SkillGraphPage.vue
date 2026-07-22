@@ -33,7 +33,7 @@ const roadmap = computed(() => gaps.value.slice(0, 6).map((item, index) => ({
 
 <template>
   <section>
-    <PageHeader eyebrow="CAPABILITY GRAPH" title="能力图谱" description="将职业档案、项目证据和岗位技能要求放到同一张能力地图中，区分已验证能力、相关经验和真实缺口。" />
+    <PageHeader eyebrow="CAPABILITY GROWTH" title="能力成长" description="将职业档案、项目证据和岗位技能要求放到同一张能力地图中，区分已验证能力、相关经验和真实缺口。" />
 
     <div class="skill-graph-toolbar"><label><Target :size="16" /><select v-model="selectedJobId" class="input"><option value="">综合职位池需求</option><option v-for="job in store.workspace?.syncedJobs" :key="job.id" :value="job.id">{{ job.company }} · {{ job.title }}</option></select></label><div><span>综合准备度</span><strong>{{ readiness }}</strong></div><div><span>已验证</span><strong>{{ verified.length }}</strong></div><div><span>待补能力</span><strong>{{ gaps.length }}</strong></div></div>
 
@@ -41,8 +41,8 @@ const roadmap = computed(() => gaps.value.slice(0, 6).map((item, index) => ({
       <main class="capability-map">
         <header><div><span class="eyebrow">EVIDENCE MAP</span><h3>{{ selectedJob ? selectedJob.title : '全局能力供需图' }}</h3></div><GitBranch :size="19" /></header>
         <div class="capability-clusters">
-          <section class="verified"><header><BookOpenCheck :size="16" /><span><strong>已验证能力</strong><small>档案中存在技能且项目提供证据</small></span></header><div><article v-for="item in verified" :key="item.name"><span><strong>{{ item.name }}</strong><small>{{ item.evidence.join('、') }}</small></span><b>{{ item.demandCount }}</b></article><p v-if="!verified.length">在项目经历中补充技术栈后显示。</p></div></section>
-          <section class="related"><header><BrainCircuit :size="16" /><span><strong>相关经验</strong><small>具备基础，但证据仍需加强</small></span></header><div><article v-for="item in related" :key="item.name"><span><strong>{{ item.name }}</strong><small>{{ item.evidence.join('、') || '职业档案已记录' }}</small></span><b>{{ item.demandCount }}</b></article><p v-if="!related.length">暂无相关能力。</p></div></section>
+          <section class="verified"><header><BookOpenCheck :size="16" /><span><strong>已验证能力</strong><small>档案中存在技能且项目提供证据</small></span></header><div><article v-for="item in verified" :key="item.name"><span><strong>{{ item.name }}</strong><small>{{ item.evidence.join('、') }}</small></span><b :title="item.demandCount ? `${item.demandCount} 个岗位提及` : '当前职位池暂无需求数据'">{{ item.demandCount || '—' }}</b></article><p v-if="!verified.length">在项目经历中补充技术栈后显示。</p></div></section>
+          <section class="related"><header><BrainCircuit :size="16" /><span><strong>相关经验</strong><small>具备基础，但证据仍需加强</small></span></header><div><article v-for="item in related" :key="item.name"><span><strong>{{ item.name }}</strong><small>{{ item.evidence.join('、') || '职业档案已记录' }}</small></span><b :title="item.demandCount ? `${item.demandCount} 个岗位提及` : '当前职位池暂无需求数据'">{{ item.demandCount || '—' }}</b></article><p v-if="!related.length">暂无相关能力。</p></div></section>
           <section class="gap"><header><CircleAlert :size="16" /><span><strong>岗位缺口</strong><small>职位池存在需求，档案暂无证据</small></span></header><div><article v-for="item in gaps" :key="item.name"><span><strong>{{ item.name }}</strong><small>{{ item.demandCount }} 个岗位提及</small></span><b>{{ item.readiness }}</b></article><p v-if="!gaps.length">当前没有明显技能缺口。</p></div></section>
         </div>
       </main>

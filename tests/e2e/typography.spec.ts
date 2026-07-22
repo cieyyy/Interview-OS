@@ -15,19 +15,16 @@ test('all product modules use the shared typography scale', async () => {
 
   const modules = [
     'dashboard',
-    'career-agent',
-    'knowledge',
-    'job-sync',
-    'job-insights',
-    'companies',
-    'applications',
+    'coach',
     'resumes',
+    'job-sync',
+    'jobs',
+    'knowledge',
+    'projects',
+    'applications',
+    'companies',
     'skill-graph',
     'data-center',
-    'calendar',
-    'training',
-    'reports',
-    'assistant',
     'settings'
   ];
 
@@ -35,12 +32,18 @@ test('all product modules use the shared typography scale', async () => {
     const page = await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');
     await page.getByRole('button', { name: '加载演示数据' }).click();
+    const notice = page.locator('[aria-label="关闭完成消息"]');
+    await notice.waitFor({ state: 'visible' });
+    await notice.click();
     await mkdir(path.resolve('artifacts', 'typography'), { recursive: true });
 
     for (const module of modules) {
       await page.getByTestId(`nav-${module}`).click();
+      await page.waitForFunction((id) => document.querySelector(`[data-testid="nav-${id}"]`)?.classList.contains('active'), module);
       await page.locator('.content-area > section').waitFor({ state: 'visible' });
-      const undersized = await page.evaluate(() => {
+      await page.locator('.content-area').evaluate((element) => element.scrollTo({ top: 0, left: 0 }));
+      const typographyIssues = await page.evaluate(() => {
+        const allowedFontSizes = new Set([12, 14, 16, 18, 24]);
         const elements = [...document.querySelectorAll<HTMLElement>('body *')];
         return elements.flatMap((element) => {
           const style = window.getComputedStyle(element);
@@ -56,7 +59,7 @@ test('all product modules use the shared typography scale', async () => {
             && rect.height > 0
             && style.visibility !== 'hidden'
             && style.display !== 'none'
-            && size < 11
+            && !allowedFontSizes.has(size)
           ) {
             return [{
               tag: element.tagName.toLowerCase(),
@@ -68,7 +71,25 @@ test('all product modules use the shared typography scale', async () => {
           return [];
         }).slice(0, 30);
       });
-      expect(undersized, `${module} contains text below 11px`).toEqual([]);
+      expect(typographyIssues, `${module} contains text outside the shared 12/14/16/18/24px scale`).toEqual([]);
+      const layout = await page.evaluate(() => {
+        const content = document.querySelector<HTMLElement>('.content-area');
+        const header = document.querySelector<HTMLElement>('.page-header');
+        if (!content || !header) return null;
+        const contentStyle = getComputedStyle(content);
+        return {
+          paddingLeft: Number.parseFloat(contentStyle.paddingLeft),
+          paddingRight: Number.parseFloat(contentStyle.paddingRight),
+          headerMarginBottom: Number.parseFloat(getComputedStyle(header).marginBottom),
+          horizontalOverflow: content.scrollWidth > content.clientWidth + 1
+        };
+      });
+      expect(layout, `${module} is missing the shared page layout`).toEqual({
+        paddingLeft: 24,
+        paddingRight: 24,
+        headerMarginBottom: 24,
+        horizontalOverflow: false
+      });
       await page.screenshot({ path: path.resolve('artifacts', 'typography', `${module}.png`), fullPage: true });
     }
   } finally {

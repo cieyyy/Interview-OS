@@ -64,12 +64,12 @@ function displayDate(value?: string): string {
 <template>
   <section>
     <PageHeader eyebrow="COMPANY RADAR" title="公司关注" description="集中管理目标公司招聘官网、校招时间线和岗位新增/变更状态，形成长期关注清单。">
-      <button class="button primary" type="button" @click="editCompany()"><Plus :size="15" />关注公司</button>
+      <button class="button primary" data-testid="company-add" type="button" @click="editCompany()"><Plus :size="15" />关注公司</button>
     </PageHeader>
 
     <div class="career-metrics company-metrics"><div><span>关注公司</span><strong>{{ companies.length }}</strong></div><div><span>重点目标</span><strong>{{ focusedCount }}</strong></div><div><span>新增岗位</span><strong>{{ newJobs }}</strong></div><div><span>发生变更</span><strong>{{ changedJobs }}</strong></div></div>
 
-    <form v-if="showForm" class="panel company-form" @submit.prevent="submit">
+    <form v-if="showForm" class="panel company-form" data-testid="company-form" @submit.prevent="submit">
       <div class="panel-heading"><div><span class="eyebrow">WATCH TARGET</span><h3>{{ form.id ? '编辑关注公司' : '新增关注公司' }}</h3></div></div>
       <div class="form-grid three"><label>公司名称<input v-model="form.name" class="input" required /></label><label>行业<input v-model="form.industry" class="input" placeholder="互联网 / 能源电力 / 医疗……" /></label><label>招聘类型<input v-model="form.recruitmentType" class="input" /></label></div>
       <label>招聘官网<input v-model="form.careerUrl" class="input" type="url" placeholder="https://" /></label>

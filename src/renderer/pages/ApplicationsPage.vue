@@ -6,13 +6,13 @@ import { buildGreetingDraft } from '../../shared/job-intelligence';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
 
-const { store, saveApplication } = useWorkspace();
+const { store, saveApplication, copyText } = useWorkspace();
 const showForm = ref(false);
 const search = ref('');
 const priorityFilter = ref<'all' | ApplicationPriority>('all');
 
 const emptyForm = (): JobApplicationInput => ({
-  jobId: '', company: '', title: '', source: '', sourceUrl: '', location: '', salaryRange: '',
+  jobId: '', resumeVariantId: '', company: '', title: '', source: '', sourceUrl: '', location: '', salaryRange: '',
   status: 'saved', priority: 'medium', deadline: '', appliedAt: '', nextAction: '', nextActionAt: '', notes: '',
   greetingDraft: '', submissionMode: 'manual'
 });
@@ -31,6 +31,7 @@ const columns: Array<{ key: string; title: string; statuses: ApplicationStatus[]
 ];
 
 const applications = computed(() => store.workspace?.applications ?? []);
+const selectedResume = computed(() => store.workspace?.resumeVariants.find((item) => item.id === form.resumeVariantId));
 const filtered = computed(() => {
   const keyword = search.value.trim().toLocaleLowerCase();
   return applications.value.filter((item) => {
@@ -49,11 +50,14 @@ const dueSoonCount = computed(() => {
 });
 
 watch(() => form.jobId, (jobId) => {
-  if (!jobId) return;
+  if (!jobId) { form.resumeVariantId = ''; return; }
   const job = store.workspace?.jobs.find((item) => item.id === jobId);
   if (job) {
     form.company = job.company;
     form.title = job.title;
+  }
+  if (selectedResume.value?.jobId !== jobId) {
+    form.resumeVariantId = store.workspace?.resumeVariants.find((item) => item.jobId === jobId)?.id ?? '';
   }
 });
 
@@ -101,13 +105,17 @@ function itemsFor(statuses: ApplicationStatus[]): JobApplication[] {
 
 function generateGreeting(): void {
   const job = form.jobId ? store.workspace?.jobs.find((item) => item.id === form.jobId) : undefined;
+  const resume = selectedResume.value;
+  if (!job || !resume) return;
+  const projects = store.workspace?.projects.filter((item) => resume.projectIds.includes(item.id)) ?? [];
+  const skillNames = store.workspace?.profile.skills.filter((item) => resume.skillIds.includes(item.id)).map((item) => item.name) ?? [];
   form.greetingDraft = buildGreetingDraft(store.workspace!.profile, {
-    title: form.title || job?.title || '目标岗位', company: form.company || job?.company, description: job?.rawText
-  });
+    title: form.title || job.title, company: form.company || job.company, description: job.rawText
+  }, { name: resume.name, headline: resume.headline, summary: resume.summary, highlights: resume.highlights, projectNames: projects.map((item) => item.name), skillNames });
 }
 
 async function copyGreeting(): Promise<void> {
-  if (form.greetingDraft) await navigator.clipboard.writeText(form.greetingDraft);
+  if (form.greetingDraft) await copyText(form.greetingDraft, '沟通话术已复制');
 }
 </script>
 
@@ -131,6 +139,7 @@ async function copyGreeting(): Promise<void> {
         <label>公司<input v-model="form.company" class="input" /></label>
         <label>岗位<input v-model="form.title" class="input" required data-testid="application-title" /></label>
       </div>
+      <label>投递简历<select v-model="form.resumeVariantId" class="input"><option value="">请选择与该 JD 对应的定向简历</option><option v-for="resume in store.workspace?.resumeVariants" :key="resume.id" :value="resume.id" :disabled="Boolean(resume.jobId && resume.jobId !== form.jobId)">{{ resume.name }}{{ resume.jobId === form.jobId ? ' · 与当前 JD 匹配' : resume.jobId ? ' · 其他 JD' : ' · 通用版' }}</option></select><small class="field-hint">沟通话术会引用这份简历中的真实亮点；不同 JD 的定向简历不可混用。</small></label>
       <div class="form-grid three">
         <label>来源<input v-model="form.source" class="input" placeholder="官网 / Boss / 内推" /></label>
         <label>地点<input v-model="form.location" class="input" /></label>
@@ -147,8 +156,8 @@ async function copyGreeting(): Promise<void> {
         <label>下一步时间<input v-model="form.nextActionAt" class="input" type="datetime-local" /></label>
       </div>
       <div class="application-greeting-field">
-        <div><label>沟通话术草稿</label><span><button class="button ghost compact" type="button" @click="generateGreeting"><Sparkles :size="14" />基于真实档案生成</button><button class="icon-command" type="button" title="复制话术" @click="copyGreeting"><Copy :size="14" /></button></span></div>
-        <textarea v-model="form.greetingDraft" class="input compact-textarea" placeholder="用于打招呼或申请备注；发送前请人工核对。"></textarea>
+        <div><label>沟通话术草稿</label><span><button class="button ghost compact" type="button" :disabled="!form.jobId || !selectedResume" @click="generateGreeting"><Sparkles :size="14" />根据 JD + 投递简历生成</button><button class="icon-command" type="button" title="复制话术" aria-label="复制话术" data-testid="application-copy-greeting" @click="copyGreeting"><Copy :size="14" /></button></span></div>
+        <textarea v-model="form.greetingDraft" class="input compact-textarea" data-testid="application-greeting" placeholder="用于打招呼或申请备注；发送前请人工核对。"></textarea>
         <div class="submission-safety"><MessageSquareText :size="15" /><span><strong>投递方式</strong><small>当前只生成材料并记录进度，不会自动向招聘平台发送。</small></span><select v-model="form.submissionMode" class="input compact-select"><option value="manual">人工投递</option><option value="assisted">辅助投递（框架）</option></select></div>
       </div>
       <label>备注<textarea v-model="form.notes" class="input compact-textarea" placeholder="岗位判断、沟通记录、面试信息和风险点……"></textarea></label>

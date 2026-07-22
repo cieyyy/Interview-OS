@@ -38,6 +38,7 @@ export type KnowledgeType =
   | 'note';
 
 export type KnowledgeStatus = 'draft' | 'learning' | 'mastered' | 'review';
+export type KnowledgeVisibility = 'private' | 'publish-ready' | 'public';
 
 export interface KnowledgeItem extends BaseEntity {
   type: KnowledgeType;
@@ -47,6 +48,10 @@ export interface KnowledgeItem extends BaseEntity {
   status: KnowledgeStatus;
   source: string;
   relatedIds: EntityId[];
+  jobIds: EntityId[];
+  projectIds: EntityId[];
+  skillNames: string[];
+  visibility: KnowledgeVisibility;
   reviewAt?: ISODateString;
 }
 
@@ -119,6 +124,7 @@ export interface ApplicationStatusEvent {
 
 export interface JobApplication extends BaseEntity {
   jobId?: EntityId;
+  resumeVariantId?: EntityId;
   company: string;
   title: string;
   source: string;
@@ -140,6 +146,7 @@ export interface JobApplication extends BaseEntity {
 export interface JobApplicationInput {
   id?: EntityId;
   jobId?: EntityId;
+  resumeVariantId?: EntityId;
   company?: string;
   title?: string;
   source?: string;
@@ -185,7 +192,7 @@ export interface ResumeVariantInput {
   status?: ResumeVariantStatus;
 }
 
-export type SyncedJobStatus = 'new' | 'saved' | 'ignored';
+export type SyncedJobStatus = 'new' | 'saved' | 'ignored' | 'trashed';
 export type JobLifecycleStatus = 'new' | 'active' | 'changed' | 'closed';
 export type JobIndustry =
   | 'technology'
@@ -526,6 +533,41 @@ export interface TrainingSession extends BaseEntity {
   summary?: PressureSessionSummary;
 }
 
+export type CoachMode =
+  | 'mock-interview'
+  | 'project-deep-dive'
+  | 'technical-qa'
+  | 'resume-follow-up'
+  | 'jd-analysis'
+  | 'english-interview';
+
+export interface CoachMessage {
+  id: EntityId;
+  role: 'system' | 'coach' | 'user';
+  content: string;
+  createdAt: ISODateString;
+}
+
+export interface CoachSession extends BaseEntity {
+  mode: CoachMode;
+  title: string;
+  status: 'active' | 'completed';
+  targetJobId?: EntityId;
+  resumeId?: EntityId;
+  projectIds: EntityId[];
+  messages: CoachMessage[];
+  answers: AnswerAttempt[];
+  report?: PressureSessionSummary;
+  linkedTrainingSessionId?: EntityId;
+}
+
+export interface WorkspaceMigrationRecord {
+  id: EntityId;
+  fromVersion: number;
+  toVersion: number;
+  migratedAt: ISODateString;
+}
+
 export interface ProviderConfig {
   kind: 'openai-compatible' | 'dify';
   name: string;
@@ -716,7 +758,7 @@ export interface WorkspaceSettings {
 }
 
 export interface WorkspaceState {
-  schemaVersion: 2;
+  schemaVersion: 3;
   profile: CareerProfile;
   projects: ProjectExperience[];
   knowledge: KnowledgeItem[];
@@ -733,6 +775,8 @@ export interface WorkspaceState {
   careerMemory: CareerMemoryItem[];
   companyWatches: CompanyWatch[];
   trainingSessions: TrainingSession[];
+  coachSessions: CoachSession[];
+  migrationHistory: WorkspaceMigrationRecord[];
   obsidianSyncIndex: ObsidianSyncIndexEntry[];
   obsidianSyncConflicts: ObsidianSyncConflict[];
   obsidianSyncRuns: ObsidianSyncRun[];
@@ -749,6 +793,10 @@ export interface KnowledgeInput {
   status?: KnowledgeStatus;
   source?: string;
   relatedIds?: EntityId[];
+  jobIds?: EntityId[];
+  projectIds?: EntityId[];
+  skillNames?: string[];
+  visibility?: KnowledgeVisibility;
   reviewAt?: ISODateString;
 }
 
@@ -789,6 +837,9 @@ export interface JobInput {
 export interface TrainingStartInput {
   jobId?: EntityId;
   projectId?: EntityId;
+  projectIds?: EntityId[];
+  resumeId?: EntityId;
+  coachMode?: CoachMode;
   type?: InterviewQuestionType | 'mixed';
   difficulty?: 'easy' | 'medium' | 'hard';
   questionCount?: number;
@@ -940,30 +991,77 @@ export function createDefaultObsidianSettings(): ObsidianIntegrationSettings {
 export function createDefaultJobSources(now = nowIso()): JobSourceConfig[] {
   return [
     {
-      id: 'source-browser-extension', name: '浏览器可见岗位同步', platform: 'BOSS / 猎聘 / 智联 / 51job / 拉勾',
+      id: 'source-browser-extension', name: '浏览器岗位同步', platform: 'BOSS / 猎聘 / 智联 / 51job / 拉勾',
       connectorType: 'browser-extension', status: 'ready', enabled: true, endpoint: 'http://127.0.0.1:19426',
-      intervalMinutes: 5, capabilities: ['search', 'detail'], notes: '读取用户已打开页面中的可见岗位，本地令牌鉴权。',
+      intervalMinutes: 5, capabilities: ['search', 'detail'], notes: '支持当前页同步，以及列表岗位后台打开详情页补全 JD；本地令牌鉴权。',
       createdAt: now, updatedAt: now
     },
     {
-      id: 'source-liepin-mcp', name: '猎聘官方 MCP', platform: '猎聘', connectorType: 'mcp', status: 'planned', enabled: false,
+      id: 'source-boss-visible', name: 'BOSS 页面适配器', platform: 'BOSS 直聘',
+      connectorType: 'browser-extension', status: 'configured', enabled: true, endpoint: 'browser-extension://boss',
+      intervalMinutes: 0, capabilities: ['search', 'detail', 'company-check', 'apply-assist'],
+      notes: '支持 BOSS 搜索列表识别与后台详情补全；不读取密码、Cookie，不绕过验证码或风控。',
+      createdAt: now, updatedAt: now
+    },
+    {
+      id: 'source-zhaopin-visible', name: '智联页面适配器', platform: '智联招聘',
+      connectorType: 'browser-extension', status: 'configured', enabled: true, endpoint: 'browser-extension://zhaopin',
+      intervalMinutes: 0, capabilities: ['search', 'detail', 'company-check'],
+      notes: '支持智联搜索页列表识别与详情页补全，需用户在浏览器中打开目标页面。',
+      createdAt: now, updatedAt: now
+    },
+    {
+      id: 'source-51job-visible', name: '前程无忧页面适配器', platform: '前程无忧 / 51job',
+      connectorType: 'browser-extension', status: 'configured', enabled: true, endpoint: 'browser-extension://51job',
+      intervalMinutes: 0, capabilities: ['search', 'detail'],
+      notes: '支持 51job 搜索页列表识别与详情页补全，适合批量浏览后同步到岗位池。',
+      createdAt: now, updatedAt: now
+    },
+    {
+      id: 'source-lagou-visible', name: '拉勾页面适配器', platform: '拉勾',
+      connectorType: 'browser-extension', status: 'configured', enabled: true, endpoint: 'browser-extension://lagou',
+      intervalMinutes: 0, capabilities: ['search', 'detail'],
+      notes: '支持拉勾列表识别与详情补全；出现滑块验证、登录或风控页时会停止同步并提示用户处理。',
+      createdAt: now, updatedAt: now
+    },
+    {
+      id: 'source-liepin-visible', name: '猎聘页面适配器', platform: '猎聘',
+      connectorType: 'browser-extension', status: 'configured', enabled: true, endpoint: 'browser-extension://liepin',
+      intervalMinutes: 0, capabilities: ['search', 'detail', 'company-check'],
+      notes: '支持猎聘列表识别与详情补全；登录弹窗、验证码和官方频率限制由用户自行处理。',
+      createdAt: now, updatedAt: now
+    },
+    {
+      id: 'source-liepin-mcp', name: '猎聘官方 MCP', platform: '猎聘', connectorType: 'mcp', status: 'configured', enabled: false,
       endpoint: 'https://open-agent.liepin.com/mcp/user', intervalMinutes: 30, capabilities: ['search', 'detail'],
       notes: '框架已预留；正式接入需要用户授权 Key，并遵守官方频率限制。', createdAt: now, updatedAt: now
     },
     {
-      id: 'source-boss-mcp', name: 'BOSS MCP 连接器', platform: 'BOSS 直聘', connectorType: 'mcp', status: 'planned', enabled: false,
+      id: 'source-boss-mcp', name: 'BOSS MCP 连接器', platform: 'BOSS 直聘', connectorType: 'mcp', status: 'configured', enabled: false,
       endpoint: 'http://127.0.0.1:8080/mcp', intervalMinutes: 30, capabilities: ['search', 'detail', 'company-check', 'apply-assist'],
       notes: '仅保留连接器契约；登录、沟通和简历发送必须由用户确认。', createdAt: now, updatedAt: now
     },
     {
-      id: 'source-company-careers', name: '目标公司官网监控', platform: '公司招聘官网', connectorType: 'company-careers', status: 'planned', enabled: false,
-      endpoint: '', intervalMinutes: 60, capabilities: ['search', 'detail', 'change-tracking'],
-      notes: '跟踪新增、变更和关闭岗位，适合校招官网与目标公司清单。', createdAt: now, updatedAt: now
+      id: 'source-company-careers', name: '目标公司官网监控', platform: '公司招聘官网', connectorType: 'company-careers', status: 'configured', enabled: true,
+      endpoint: 'company-watches://configured', intervalMinutes: 60, capabilities: ['search', 'detail', 'change-tracking'],
+      notes: '跟踪公司关注清单中的官网新增、变更和关闭岗位；打开软件时可自动检查匹配岗位。', createdAt: now, updatedAt: now
     },
     {
-      id: 'source-google-jobs-api', name: 'Google Jobs 聚合 API', platform: 'Google Jobs', connectorType: 'api', status: 'planned', enabled: false,
-      endpoint: '', intervalMinutes: 60, capabilities: ['search', 'detail'],
-      notes: '使用合规结构化 API 接入，不实现验证码绕过。', createdAt: now, updatedAt: now
+      id: 'source-google-jobs-api', name: 'Google Jobs 聚合 API', platform: 'Google Jobs', connectorType: 'api', status: 'configured', enabled: false,
+      endpoint: 'https://jobs.googleapis.com/', intervalMinutes: 60, capabilities: ['search', 'detail'],
+      notes: '预留结构化 API 接入；需要 API Key 或合规聚合服务后才发起真实请求。', createdAt: now, updatedAt: now
+    },
+    {
+      id: 'source-linkedin-api', name: 'LinkedIn / 海外岗位 API', platform: 'LinkedIn / 海外职位源', connectorType: 'api', status: 'configured', enabled: false,
+      endpoint: 'https://api.linkedin.com/', intervalMinutes: 60, capabilities: ['search', 'detail', 'company-check'],
+      notes: '预留海外岗位结构化数据入口；需要合法 API 权限或第三方聚合服务。',
+      createdAt: now, updatedAt: now
+    },
+    {
+      id: 'source-custom-scraper', name: '自定义爬虫适配器', platform: '自建采集服务', connectorType: 'scraper', status: 'configured', enabled: false,
+      endpoint: 'http://127.0.0.1:18080/jobs', intervalMinutes: 30, capabilities: ['search', 'detail', 'change-tracking', 'push'],
+      notes: '用于对接你后续自建的 Python/Node 采集服务，要求输出标准化岗位 JSON。',
+      createdAt: now, updatedAt: now
     },
     {
       id: 'source-generic-import', name: '结构化文件导入', platform: 'CSV / JSON', connectorType: 'import', status: 'configured', enabled: true,
@@ -972,10 +1070,93 @@ export function createDefaultJobSources(now = nowIso()): JobSourceConfig[] {
   ];
 }
 
+export function createDefaultJobFilterPresets(now = nowIso()): JobFilterPreset[] {
+  return [
+    {
+      id: 'preset-tech-cloud-native', name: '技术研发 · 云原生高匹配',
+      includeKeywords: ['Kubernetes', 'Docker', '云原生', 'SRE', '后端', '平台工程'],
+      excludeKeywords: ['实习', '兼职', '外包', '培训', '销售'],
+      cities: ['杭州', '上海', '北京', '深圳', '远程'],
+      industries: ['technology', 'operations'], sources: [], minSalaryK: 15, minMatchScore: 70, minTrustScore: 70,
+      remoteOnly: false, freshWithinDays: 30, createdAt: now, updatedAt: now
+    },
+    {
+      id: 'preset-operations-delivery', name: '运维支持 · 交付实施',
+      includeKeywords: ['运维', '实施', '交付', 'Linux', '网络', '故障排查'],
+      excludeKeywords: ['兼职', '外包', '电话销售', '无责底薪'],
+      cities: ['杭州', '上海', '成都', '远程'],
+      industries: ['operations', 'technology'], sources: [], minSalaryK: 8, minMatchScore: 60, minTrustScore: 65,
+      remoteOnly: false, freshWithinDays: 30, createdAt: now, updatedAt: now
+    },
+    {
+      id: 'preset-product-ai-saas', name: '产品 · AI / SaaS',
+      includeKeywords: ['产品经理', 'AI', 'SaaS', 'B端', '数据分析', '用户增长'],
+      excludeKeywords: ['销售', '客服', '实习', '外包'],
+      cities: ['杭州', '上海', '北京', '深圳'],
+      industries: ['product'], sources: [], minSalaryK: 12, minMatchScore: 65, minTrustScore: 70,
+      remoteOnly: false, freshWithinDays: 45, createdAt: now, updatedAt: now
+    },
+    {
+      id: 'preset-design-ux', name: '设计 · UI/UX / 视觉',
+      includeKeywords: ['UI', 'UX', '视觉设计', '交互设计', 'Figma', '作品集'],
+      excludeKeywords: ['电商客服', '销售', '外包', '兼职'],
+      cities: ['杭州', '上海', '北京', '深圳', '远程'],
+      industries: ['design'], sources: [], minSalaryK: 8, minMatchScore: 60, minTrustScore: 65,
+      remoteOnly: false, freshWithinDays: 45, createdAt: now, updatedAt: now
+    },
+    {
+      id: 'preset-sales-enterprise', name: '销售商务 · 企业客户',
+      includeKeywords: ['销售', '商务', '客户经理', '大客户', '解决方案'],
+      excludeKeywords: ['电销', '保险', '贷款', '兼职', '无经验高薪'],
+      cities: ['杭州', '上海', '北京', '深圳', '成都'],
+      industries: ['sales'], sources: [], minSalaryK: 8, minMatchScore: 55, minTrustScore: 70,
+      remoteOnly: false, freshWithinDays: 30, createdAt: now, updatedAt: now
+    },
+    {
+      id: 'preset-marketing-growth', name: '市场运营 · 增长内容',
+      includeKeywords: ['运营', '增长', '内容', '新媒体', '活动', '数据分析'],
+      excludeKeywords: ['主播', '客服', '兼职', '刷单', '外包'],
+      cities: ['杭州', '上海', '北京', '深圳', '远程'],
+      industries: ['marketing'], sources: [], minSalaryK: 7, minMatchScore: 55, minTrustScore: 65,
+      remoteOnly: false, freshWithinDays: 30, createdAt: now, updatedAt: now
+    },
+    {
+      id: 'preset-finance-hr-legal', name: '职能 · 财务 / HR / 法务',
+      includeKeywords: ['财务', '会计', '人力资源', '招聘', '法务', '合规'],
+      excludeKeywords: ['销售', '兼职', '外包', '培训收费'],
+      cities: ['杭州', '上海', '北京', '深圳'],
+      industries: ['finance', 'human-resources', 'legal'], sources: [], minSalaryK: 6, minMatchScore: 55, minTrustScore: 70,
+      remoteOnly: false, freshWithinDays: 45, createdAt: now, updatedAt: now
+    },
+    {
+      id: 'preset-education-general', name: '教育 / 综合 · 稳定岗位',
+      includeKeywords: ['教育', '培训', '教研', '课程', '助教', '行政'],
+      excludeKeywords: ['收费培训', '兼职', '销售', '招生高提成'],
+      cities: ['杭州', '上海', '成都', '远程'],
+      industries: ['education', 'general'], sources: [], minSalaryK: 5, minMatchScore: 50, minTrustScore: 70,
+      remoteOnly: false, freshWithinDays: 45, createdAt: now, updatedAt: now
+    }
+  ];
+}
+
+export function createDefaultJobAlertRules(now = nowIso()): JobAlertRule[] {
+  return createDefaultJobFilterPresets(now).map((preset) => ({
+    id: `alert-${preset.id.replace(/^preset-/u, '')}`,
+    name: `${preset.name}提醒`,
+    presetId: preset.id,
+    channel: 'in-app',
+    enabled: true,
+    threshold: 1,
+    target: '',
+    createdAt: now,
+    updatedAt: now
+  }));
+}
+
 export function createEmptyState(): WorkspaceState {
   const now = nowIso();
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     profile: {
       nickname: '',
       currentRole: '',
@@ -993,13 +1174,15 @@ export function createEmptyState(): WorkspaceState {
     syncedJobs: [],
     jobSources: createDefaultJobSources(now),
     jobSyncRuns: [],
-    jobFilterPresets: [],
-    jobAlertRules: [],
+    jobFilterPresets: createDefaultJobFilterPresets(now),
+    jobAlertRules: createDefaultJobAlertRules(now),
     careerSearchPlans: [],
     careerAgentRuns: [],
     careerMemory: [],
     companyWatches: [],
     trainingSessions: [],
+    coachSessions: [],
+    migrationHistory: [],
     obsidianSyncIndex: [],
     obsidianSyncConflicts: [],
     obsidianSyncRuns: [],
@@ -1064,6 +1247,10 @@ export function createDemoState(): WorkspaceState {
         status: 'learning',
         source: '工作实践',
         relatedIds: [projectId],
+        jobIds: [],
+        projectIds: [projectId],
+        skillNames: ['大模型 API'],
+        visibility: 'private',
         createdAt: now,
         updatedAt: now
       }

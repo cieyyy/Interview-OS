@@ -40,17 +40,27 @@ export class AtomicWorkspaceRepository {
       mkdir(path.join(this.rootDirectory, 'exports'), { recursive: true }),
       mkdir(path.join(this.rootDirectory, 'attachments'), { recursive: true }),
       mkdir(path.join(this.rootDirectory, 'secure'), { recursive: true }),
-      mkdir(path.join(this.rootDirectory, 'logs'), { recursive: true })
+      mkdir(path.join(this.rootDirectory, 'logs'), { recursive: true }),
+      mkdir(path.join(this.rootDirectory, 'migrations'), { recursive: true })
     ]);
 
+    const currentVersion = await this.readSchemaVersion(this.statePath);
     const current = await this.readValidState(this.statePath);
     if (current) {
+      if (currentVersion !== undefined && currentVersion < current.schemaVersion) {
+        await this.recordMigration(this.statePath, currentVersion, current);
+        await this.persist(current);
+      }
       this.state = current;
       return this.getState();
     }
 
+    const previousVersion = await this.readSchemaVersion(this.previousPath);
     const previous = await this.readValidState(this.previousPath);
     if (previous) {
+      if (previousVersion !== undefined && previousVersion < previous.schemaVersion) {
+        await this.recordMigration(this.previousPath, previousVersion, previous);
+      }
       this.state = previous;
       await this.persist(previous);
       return this.getState();
@@ -116,6 +126,11 @@ export class AtomicWorkspaceRepository {
         status: item.status,
         tags: item.tags,
         source: item.source,
+        visibility: item.visibility,
+        reviewAt: item.reviewAt,
+        jobIds: item.jobIds,
+        projectIds: item.projectIds,
+        skillNames: item.skillNames,
         updatedAt: item.updatedAt
       });
       await writeMarkdown('knowledge', item.title, `${frontmatter}\n# ${item.title}\n\n${item.contentMarkdown}\n`);
@@ -174,6 +189,14 @@ export class AtomicWorkspaceRepository {
       await writeMarkdown('interviews', session.title, `# ${session.title}\n\n${rows.join('\n\n')}\n`);
     }
 
+    for (const session of this.state.coachSessions) {
+      const messages = session.messages.map((message) => `## ${message.role}\n\n${message.content}`).join('\n\n');
+      const report = session.report
+        ? `\n\n## Report\n\n### Core strengths\n${session.report.coreStrengths.map((item) => `- ${item}`).join('\n')}\n\n### High-risk gaps\n${session.report.highRiskGaps.map((item) => `- ${item}`).join('\n')}`
+        : '';
+      await writeMarkdown('coach-sessions', session.title, `${markdownFrontmatter({ id: session.id, type: 'coach-session', mode: session.mode, status: session.status, targetJobId: session.targetJobId, resumeId: session.resumeId, projectIds: session.projectIds })}\n# ${session.title}\n\n${messages}${report}\n`);
+    }
+
     await writeFile(
       path.join(exportRoot, 'manifest.json'),
       JSON.stringify({ schemaVersion: 1, createdAt, files }, null, 2),
@@ -190,6 +213,38 @@ export class AtomicWorkspaceRepository {
     } catch {
       return undefined;
     }
+  }
+
+  private async readSchemaVersion(filePath: string): Promise<number | undefined> {
+    try {
+      const parsed = JSON.parse(await readFile(filePath, 'utf8')) as { schemaVersion?: unknown };
+      const version = Number(parsed.schemaVersion ?? 1);
+      return Number.isFinite(version) ? version : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async recordMigration(sourcePath: string, fromVersion: number, state: WorkspaceState): Promise<void> {
+    const migrationStamp = stamp();
+    const backupPath = path.join(this.rootDirectory, 'backups', `workspace-before-v${fromVersion}-to-v${state.schemaVersion}-${migrationStamp}.json`);
+    const reportPath = path.join(this.rootDirectory, 'migrations', `migration-v${fromVersion}-to-v${state.schemaVersion}-${migrationStamp}.json`);
+    await copyFile(sourcePath, backupPath);
+    await writeFile(reportPath, JSON.stringify({
+      fromVersion,
+      toVersion: state.schemaVersion,
+      migratedAt: nowIso(),
+      backupPath,
+      counts: {
+        projects: state.projects.length,
+        knowledge: state.knowledge.length,
+        jobs: state.jobs.length,
+        resumes: state.resumeVariants.length,
+        applications: state.applications.length,
+        trainingSessions: state.trainingSessions.length,
+        coachSessions: state.coachSessions.length
+      }
+    }, null, 2), 'utf8');
   }
 
   private async persist(value: WorkspaceState): Promise<void> {

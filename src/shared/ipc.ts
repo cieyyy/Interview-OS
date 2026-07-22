@@ -73,9 +73,11 @@ export const IPC = {
   saveCareerMemory: 'career-memory:save',
   saveCompanyWatch: 'company-watch:save',
   validateCompanyWatch: 'company-watch:validate',
+  checkCompanyWatchesOnStartup: 'company-watch:startup-check',
   getJobSyncStatus: 'job-sync:status',
   promoteSyncedJob: 'job-sync:promote',
   updateSyncedJobStatus: 'job-sync:update-status',
+  deleteSyncedJobPermanently: 'job-sync:delete-permanently',
   startTraining: 'training:start',
   submitTraining: 'training:submit',
   finalizeTraining: 'training:finalize',
@@ -85,6 +87,7 @@ export const IPC = {
   saveProvider: 'provider:save',
   testProvider: 'provider:test',
   getMeta: 'app:get-meta',
+  copyText: 'clipboard:write-text',
   importDocument: 'document:import'
   ,
   selectObsidianVault: 'obsidian:select-vault',
@@ -120,9 +123,11 @@ export interface InterviewOSApi {
   saveCareerMemory(input: CareerMemoryInput): Promise<Result<CareerMemoryItem>>;
   saveCompanyWatch(input: CompanyWatchInput): Promise<Result<CompanyWatch>>;
   validateCompanyWatch(id: string): Promise<Result<CompanyWatch>>;
+  checkCompanyWatchesOnStartup(): Promise<Result<JobSyncRun[]>>;
   getJobSyncStatus(): Promise<Result<JobSyncBridgeStatus>>;
   promoteSyncedJob(id: string): Promise<Result<JobDescription>>;
   updateSyncedJobStatus(id: string, status: SyncedJobStatus): Promise<Result<SyncedJob>>;
+  deleteSyncedJobPermanently(id: string): Promise<Result<{ deleted: boolean }>>;
   startTraining(input: TrainingStartInput): Promise<Result<TrainingSession>>;
   submitTraining(input: TrainingAnswerInput): Promise<Result<TrainingSession>>;
   finalizeTraining(input: TrainingFinalizeInput): Promise<Result<TrainingSession>>;
@@ -132,6 +137,7 @@ export interface InterviewOSApi {
   saveProvider(input: ProviderInput): Promise<Result<ProviderConfig>>;
   testProvider(): Promise<Result<ConnectionResult>>;
   getMeta(): Promise<Result<AppMeta>>;
+  copyText(value: string): Promise<Result<{ copied: boolean }>>;
   importDocument(target: DocumentImportTarget): Promise<Result<DocumentImportResult | null>>;
   selectObsidianVault(): Promise<Result<ObsidianVaultCheck | null>>;
   createObsidianVault(): Promise<Result<ObsidianVaultCheck | null>>;

@@ -23,8 +23,8 @@ from reportlab.platypus import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "Interview-OS-product-spec-v0.5.0.md"
-OUTPUT = ROOT / "docs" / "Interview-OS-产品与架构说明-v0.5.0.pdf"
+SOURCE = ROOT / "Interview-OS-product-spec-v0.6.0.md"
+OUTPUT = ROOT / "docs" / "Interview-OS-产品与架构说明-v0.6.0.pdf"
 
 FONT_REGULAR = "MicrosoftYaHei"
 FONT_BOLD = "MicrosoftYaHeiBold"
@@ -52,7 +52,7 @@ def inline_markup(text: str) -> str:
         if token.startswith("**"):
             parts.append(f"<b>{html.escape(token[2:-2])}</b>")
         else:
-            parts.append(f'<font name="Courier" color="#1F4D78">{html.escape(token[1:-1])}</font>')
+            parts.append(f'<font name="{FONT_REGULAR}" color="#1F4D78">{html.escape(token[1:-1])}</font>')
         position = match.end()
     parts.append(html.escape(text[position:]))
     return "".join(parts)
@@ -123,7 +123,7 @@ def make_styles():
         "code": ParagraphStyle(
             "Code",
             parent=styles["Code"],
-            fontName="Courier",
+            fontName=FONT_REGULAR,
             fontSize=9,
             leading=11,
             textColor=colors.HexColor("#334E68"),
@@ -213,14 +213,14 @@ def draw_later_page(canvas, doc) -> None:
     canvas.setFillColor(MUTED)
     canvas.drawString(72, LETTER[1] - 38, "INTERVIEW OS  |  产品与架构说明")
     canvas.setFont(FONT_REGULAR, 8.5)
-    canvas.drawRightString(LETTER[0] - 72, LETTER[1] - 38, "v0.5.0")
+    canvas.drawRightString(LETTER[0] - 72, LETTER[1] - 38, "v0.6.0")
     canvas.drawRightString(LETTER[0] - 72, 36, f"Interview OS  |  {doc.page}")
     canvas.restoreState()
 
 
 def draw_first_page(canvas, doc) -> None:
     canvas.saveState()
-    canvas.setTitle("Interview OS 产品与架构说明 v0.5.0")
+    canvas.setTitle("Interview OS 产品与架构说明 v0.6.0")
     canvas.setAuthor("Interview OS Project")
     canvas.setSubject("产品需求文档与系统架构说明")
     canvas.restoreState()
@@ -237,7 +237,7 @@ def build_pdf() -> Path:
         leftMargin=inch,
         topMargin=inch,
         bottomMargin=inch,
-        title="Interview OS 产品与架构说明 v0.5.0",
+        title="Interview OS 产品与架构说明 v0.6.0",
         author="Interview OS Project",
     )
     story = []
@@ -258,10 +258,10 @@ def build_pdf() -> Path:
         Paragraph("产品与架构说明", subtitle_style),
     ])
     meta = [
-        ("版本", "v0.5.0 Career Workspace + Obsidian Phase 1"),
-        ("阶段", "本地求职闭环与知识资产导出可用，真实外部连接器逐步接入前"),
+        ("版本", "v0.6.0 Personal Career AI Operating System"),
+        ("阶段", "v0.6.0 产品化、功能融合、知识体系和无损迁移已完成"),
         ("文档类型", "产品需求文档（PRD）+ 系统架构说明"),
-        ("更新时间", "2026-07-21"),
+        ("更新时间", "2026-07-22"),
         ("项目位置", str(ROOT)),
     ]
     meta_table = Table(
@@ -279,7 +279,7 @@ def build_pdf() -> Path:
     story.extend([meta_table, Spacer(1, 20)])
     callout = Table(
         [[Paragraph(
-            "当前结论：Interview OS 已形成岗位、简历、投递、训练、求职 Agent 和 Obsidian 知识资产导出的本地闭环。真实招聘平台抓取、外部推送、自动投递和双向同步仍保持关闭。",
+            "当前结论：Interview OS v0.6.0 已完成个人职业 AI 操作系统的信息架构、统一职业教练、内置知识空间、Design System 和无损迁移。真实招聘平台抓取、外部推送与自动投递仍保持关闭。",
             styles["callout"],
         )]],
         colWidths=[468],
@@ -306,7 +306,7 @@ def build_pdf() -> Path:
     index = next(i for i, line in enumerate(lines) if line.startswith("## 1."))
     in_code = False
     code_lines: list[str] = []
-    page_break_sections = {"## 5.", "## 7."}
+    page_break_sections = {"## 5."}
     while index < len(lines):
         raw = lines[index]
         stripped = raw.strip()

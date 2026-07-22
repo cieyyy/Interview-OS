@@ -1,15 +1,6 @@
 <script setup lang="ts">
+import UiPageHeader from './ui/PageHeader.vue';
 defineProps<{ title: string; description: string; eyebrow?: string }>();
 </script>
 
-<template>
-  <header class="page-header">
-    <div>
-      <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
-      <h1>{{ title }}</h1>
-      <p class="page-description">{{ description }}</p>
-    </div>
-    <div class="page-actions"><slot /></div>
-  </header>
-</template>
-
+<template><UiPageHeader :title="title" :description="description" :eyebrow="eyebrow"><slot /></UiPageHeader></template>

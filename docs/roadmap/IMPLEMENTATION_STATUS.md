@@ -1,5 +1,54 @@
 # Interview OS Implementation Status
 
+## v0.7.0 Browser Job Sync Upgrade
+
+- [x] Chrome extension current-page sync retained
+- [x] Recruitment list extraction retained
+- [x] Background detail-page completion queue
+- [x] Login/captcha boundary kept user-controlled
+- [x] Full-page JD fallback removed
+- [x] Job Center desktop responsive layout
+- [x] Source copy updated for list-detail completion
+- [x] Typecheck and unit/integration tests
+- [ ] Windows NSIS package verification
+- [ ] Windows portable package verification
+- [ ] v0.7.0 SHA-256 manifest
+- [ ] GitHub Release artifact publishing
+
+## v0.7.0 Verified Baseline
+
+- JavaScript syntax checks: browser extension content, background and popup scripts passed.
+- Type checking: passed.
+- Unit/integration tests: 81 passed across 18 test files.
+- Packaged application test remains pending.
+
+## v0.6.0 Product OS Upgrade
+
+- [x] Code-based v0.5.0 baseline audit
+- [x] Design System tokens and shared UI component layer
+- [x] 12-module navigation and today-first dashboard
+- [x] Unified AI career coach and six coaching modes
+- [x] CoachSession compatibility model and old-session migration
+- [x] Resume, job and project context links
+- [x] Internal Markdown knowledge space
+- [x] Properties, visibility, WikiLinks and backlinks
+- [x] Knowledge relationship graph
+- [x] Project/JD/training automatic knowledge generation
+- [x] Schema 2 to 3 backup, migration report and recovery tests
+- [x] Typecheck, unit tests, production build and Electron source E2E
+- [ ] Windows NSIS package verification
+- [ ] Windows portable package verification
+- [ ] v0.6.0 SHA-256 manifest
+- [x] Merge and push source baseline
+- [ ] Tag and GitHub Release
+
+## v0.6.0 Verified Baseline
+
+- Unit tests: 60 passed across 16 test files.
+- Type checking: passed.
+- Production build: passed.
+- Electron E2E: main workflow and 12-module typography validation passed; packaged application test remains pending.
+
 ## v0.5.0 Obsidian Integration
 
 ### Phase 1 - One-Way Export
@@ -44,10 +93,10 @@
 
 ### Phase 4 - Knowledge Relationships
 
-- [ ] WikiLink parser
-- [ ] Backlink index
-- [ ] Relationship graph API
-- [ ] Review task synchronization
+- [x] WikiLink parser
+- [x] Backlink index
+- [x] Relationship graph API
+- [x] Review task synchronization
 
 ## Verified Baseline
 

@@ -13,8 +13,8 @@ from docx.shared import Inches, Pt, RGBColor
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "Interview-OS-product-spec-v0.5.0.md"
-OUTPUT = ROOT / "docs" / "Interview-OS-产品与架构说明-v0.5.0.docx"
+SOURCE = ROOT / "Interview-OS-product-spec-v0.6.0.md"
+OUTPUT = ROOT / "docs" / "Interview-OS-产品与架构说明-v0.6.0.docx"
 
 BLUE = "2E74B5"
 DARK_BLUE = "1F4D78"
@@ -292,12 +292,12 @@ def configure_section(section, first=False):
     header_p.paragraph_format.tab_stops.add_tab_stop(Inches(6.5), WD_TAB_ALIGNMENT.RIGHT)
     left = header_p.add_run("INTERVIEW OS  |  产品与架构说明")
     set_run_font(left, size=8.5, color=MUTED, bold=True)
-    right = header_p.add_run("\tv0.5.0")
+    right = header_p.add_run("\tv0.6.0")
     set_run_font(right, size=8.5, color=MUTED)
 
     footer_p = section.footer.paragraphs[0]
     footer_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    prefix = footer_p.add_run("Interview OS  ·  本地优先的一体化求职工作台  |  ")
+    prefix = footer_p.add_run("Interview OS  ·  本地优先的个人职业 AI 操作系统  |  ")
     set_run_font(prefix, size=8.5, color=MUTED)
     add_page_field(footer_p)
 
@@ -404,10 +404,10 @@ def build_document():
     title = doc.add_paragraph("Interview OS", style="Product Title")
     subtitle = doc.add_paragraph("产品与架构说明", style="Product Subtitle")
     meta_rows = [
-        ("版本", "v0.5.0 Career Workspace + Obsidian Phase 1"),
-        ("阶段", "本地求职闭环与知识资产导出可用，真实外部连接器逐步接入前"),
+        ("版本", "v0.6.0 Personal Career AI Operating System"),
+        ("阶段", "v0.6.0 产品化、功能融合、知识体系和无损迁移已完成"),
         ("文档类型", "产品需求文档（PRD）+ 系统架构说明"),
-        ("更新时间", "2026-07-21"),
+        ("更新时间", "2026-07-22"),
         ("项目位置", r"D:\资料\release\IOS"),
     ]
     for label, value in meta_rows:
@@ -419,7 +419,7 @@ def build_document():
         set_run_font(r2, size=10.5, color=MUTED)
     doc.add_paragraph()
     status = doc.add_paragraph(style="Callout")
-    add_inline(status, "当前结论：Interview OS 已形成岗位、简历、投递、训练、求职 Agent 和 Obsidian 知识资产导出的本地闭环。真实招聘平台抓取、外部推送、自动投递和双向同步仍保持关闭。")
+    add_inline(status, "当前结论：Interview OS v0.6.0 已完成个人职业 AI 操作系统的信息架构、统一职业教练、内置知识空间、Design System 和无损迁移。真实招聘平台抓取、外部推送与自动投递仍保持关闭。")
     add_shading_to_paragraph(status, GREEN_FILL, GREEN)
     doc.add_paragraph()
     p = doc.add_paragraph()
@@ -430,12 +430,7 @@ def build_document():
 
     doc.add_page_break()
     toc_title = doc.add_paragraph("文档目录", style="Heading 1")
-    sections = [
-        "1. 产品定义", "2. 目标用户与核心场景", "3. 端到端用户流程", "4. 产品信息架构",
-        "5. 核心功能模块说明", "6. 数据与领域架构", "7. 连接器架构", "8. 系统技术架构",
-        "9. 当前完成度", "10. 安全、隐私与风控", "11. 是否需要服务器与域名", "12. 已知问题",
-        "13. 分阶段路线图", "14. 当前验收基线", "15. 相关文档", "16. 产品阶段结论",
-    ]
+    sections = [line[3:] for line in lines if re.match(r"^## \d+\.", line)]
     for item in sections:
         add_bullet(doc, item, numbered=False)
     doc.add_page_break()
@@ -444,7 +439,7 @@ def build_document():
     i = start
     in_code = False
     code_lines = []
-    page_break_sections = {"## 5.", "## 7."}
+    page_break_sections = {"## 5."}
     while i < len(lines):
         raw = lines[i]
         stripped = raw.strip()

@@ -3,17 +3,13 @@ import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   BookOpenText,
-  Bot,
   BrainCircuit,
   Building2,
-  ChartNoAxesCombined,
   Database,
-  CalendarDays,
   FileSearch,
   FileUser,
   GitBranch,
   House,
-  MicVocal,
   Radar,
   Settings,
   ShieldCheck,
@@ -22,29 +18,25 @@ import {
   X
 } from '@lucide/vue';
 import { useWorkspace } from './composables/useWorkspace';
+import { resolvePrimaryNavigation } from './navigation';
 
 const route = useRoute();
 const { store, clearMessages } = useWorkspace();
 const navItems = [
   { to: '/', label: '工作台', icon: House },
-  { to: '/career-agent', label: '求职 Agent', icon: BrainCircuit },
-  { to: '/knowledge', label: '知识库', icon: BookOpenText },
-  { to: '/profile', label: '职业档案', icon: UserRound },
-  { to: '/jobs', label: 'JD 中心', icon: FileSearch },
-  { to: '/job-sync', label: '岗位同步', icon: Radar },
-  { to: '/job-insights', label: '岗位洞察', icon: ChartNoAxesCombined },
-  { to: '/companies', label: '公司关注', icon: Building2 },
-  { to: '/applications', label: '求职管道', icon: SquareKanban },
+  { to: '/job-sync', label: '岗位中心', icon: Radar },
+  { to: '/jobs', label: 'JD 分析', icon: FileSearch },
+  { to: '/skill-graph', label: '能力成长', icon: GitBranch },
   { to: '/resumes', label: '简历工坊', icon: FileUser },
-  { to: '/skill-graph', label: '能力图谱', icon: GitBranch },
+  { to: '/projects', label: '项目资产库', icon: UserRound },
+  { to: '/coach', label: 'AI 职业教练', icon: BrainCircuit },
+  { to: '/knowledge', label: '知识空间', icon: BookOpenText },
+  { to: '/applications', label: '求职管道', icon: SquareKanban },
+  { to: '/companies', label: '公司关注', icon: Building2 },
   { to: '/data-center', label: '数据中心', icon: Database },
-  { to: '/calendar', label: '求职日程', icon: CalendarDays },
-  { to: '/training', label: '面试训练', icon: MicVocal },
-  { to: '/reports', label: '训练报告', icon: ChartNoAxesCombined },
-  { to: '/assistant', label: 'AI 助手', icon: Bot },
   { to: '/settings', label: '设置', icon: Settings }
 ];
-const active = computed(() => route.path);
+const active = computed(() => resolvePrimaryNavigation(route.path, route.query));
 </script>
 
 <template>
@@ -53,7 +45,7 @@ const active = computed(() => route.path);
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">IO</div>
-        <div><strong>Interview OS</strong><span>个人面试知识系统</span></div>
+        <div><strong>Interview OS</strong><span>个人职业 AI 操作系统</span></div>
       </div>
       <nav class="nav-list" aria-label="主导航">
         <RouterLink
@@ -87,8 +79,8 @@ const active = computed(() => route.path);
     <button v-if="store.error" class="toast error" type="button" role="alert" aria-label="关闭错误消息" @click="clearMessages">
       <span class="toast-copy"><strong>操作失败</strong><span>{{ store.error }}</span></span><X :size="16" aria-hidden="true" />
     </button>
-    <button v-if="store.notice" class="toast success" type="button" role="status" aria-label="关闭完成消息" @click="clearMessages">
-      <span class="toast-copy"><strong>已完成</strong><span>{{ store.notice }}</span></span><X :size="16" aria-hidden="true" />
+    <button v-if="store.notice" class="toast" :class="store.noticeTone" type="button" role="status" aria-label="关闭完成消息" @click="clearMessages">
+      <span class="toast-copy"><strong>{{ store.noticeTone === 'success' ? '已完成' : store.noticeTone === 'warning' ? '验证失败' : '检查结果' }}</strong><span>{{ store.notice }}</span></span><X :size="16" aria-hidden="true" />
     </button>
     <div v-if="store.loading" class="loading-bar" role="progressbar" aria-label="正在处理"></div>
   </div>

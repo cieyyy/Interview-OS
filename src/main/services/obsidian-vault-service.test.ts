@@ -97,13 +97,15 @@ describe('ObsidianVaultService Phase 1', () => {
     delete legacy.obsidianSyncIndex;
     delete legacy.obsidianSyncConflicts;
     delete legacy.obsidianSyncRuns;
+    delete legacy.coachSessions;
+    delete legacy.migrationHistory;
     delete (legacy.settings as Record<string, unknown>).obsidian;
     await mkdir(path.join(workspaceRoot, 'database'), { recursive: true });
     await writeFile(path.join(workspaceRoot, 'database', 'state.json'), JSON.stringify(legacy), 'utf8');
 
     const repository = new AtomicWorkspaceRepository(workspaceRoot);
     const state = await repository.initialize();
-    expect(state.schemaVersion).toBe(2);
+    expect(state.schemaVersion).toBe(3);
     expect(state.settings.obsidian.enabled).toBe(false);
     expect(state.settings.obsidian.mode).toBe('disabled');
     expect(state.obsidianSyncIndex).toEqual([]);

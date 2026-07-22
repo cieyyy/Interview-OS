@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { reactive, ref, watchEffect } from 'vue';
+import { reactive, ref, watch, watchEffect } from 'vue';
+import { useRoute } from 'vue-router';
 import type { DocumentImportResult, ProfileInput, ProjectExperience, ProjectInput, SkillLevel } from '../../shared/domain';
 import DocumentImportButton from '../components/DocumentImportButton.vue';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
 
 const { store, saveProfile, saveProject } = useWorkspace();
+const route = useRoute();
 const tab = ref<'profile' | 'projects'>('profile');
 const targetRolesText = ref('');
 const skillsText = ref('');
@@ -14,6 +16,8 @@ const importWarnings = ref<string[]>([]);
 const profile = reactive<ProfileInput>({ nickname: '', currentRole: '', yearsExperience: 0, education: '', targetRoles: [], skills: [] });
 const project = reactive<ProjectInput>(emptyProject());
 const techText = ref('');
+
+watch(() => route.query.tab, (value) => { if (value === 'projects' || value === 'profile') tab.value = value; }, { immediate: true });
 
 function emptyProject(): ProjectInput {
   return {
@@ -133,7 +137,7 @@ async function submitProject(): Promise<void> {
       <li v-for="warning in importWarnings" :key="warning">{{ warning }}</li>
     </ul>
     <div class="segmented">
-      <button :class="{ active: tab === 'profile' }" @click="tab = 'profile'">基础档案</button>
+      <button :class="{ active: tab === 'profile' }" data-testid="profile-base-tab" @click="tab = 'profile'">基础档案</button>
       <button :class="{ active: tab === 'projects' }" data-testid="profile-project-tab" @click="tab = 'projects'">项目经历</button>
     </div>
 

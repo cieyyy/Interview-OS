@@ -1,0 +1,11 @@
+@import "./colors.css";
+@import "./typography.css";
+@import "./spacing.css";
+
+:root {
+  --shadow-card: 0 8px 24px rgba(39, 79, 124, 0.08);
+  --shadow-floating: 0 18px 42px rgba(39, 79, 124, 0.13);
+  --duration-fast: 150ms;
+  --duration-standard: 200ms;
+  --ease-standard: ease;
+}
