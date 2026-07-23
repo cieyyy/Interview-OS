@@ -1,5 +1,32 @@
 # Interview OS Implementation Status
 
+## v0.8.0 Multi-source Job Workflow Upgrade
+
+- [x] Manual and automatic browser-extension capture modes
+- [x] Multi-source recruitment-site adapters and dynamic detail retry
+- [x] Persistent batch progress and failed-job reporting
+- [x] Per-job analysis and capability evidence isolation
+- [x] Inline job details and job-analysis handoff
+- [x] Custom address and nearest-job ordering
+- [x] Batch job management and recycle-bin bulk actions
+- [x] Knowledge pagination and desktop layout normalization
+- [x] Typecheck, unit/integration tests and production build
+- [x] Windows NSIS package generation
+- [x] Windows portable package generation
+- [ ] Packaged application smoke test
+- [x] v0.8.0 SHA-256 manifest
+- [ ] Git tag and GitHub Release artifact publishing
+
+## v0.8.0 Verified Baseline
+
+- JavaScript syntax checks: browser extension content, background and popup scripts passed.
+- Type checking: passed.
+- Unit/integration tests: 86 passed across 19 test files.
+- Production build: passed.
+- Electron source E2E: blocked by a page-load crash also reproduced by the existing baseline E2E on this machine.
+- Windows packaging: setup and portable artifacts generated through a pure-ASCII temporary output path.
+- Packaged smoke test: process launched, but no testable window appeared before the 45-second timeout in the current desktop environment.
+
 ## v0.7.0 Browser Job Sync Upgrade
 
 - [x] Chrome extension current-page sync retained

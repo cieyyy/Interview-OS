@@ -136,7 +136,7 @@ export function useWorkspace() {
       return value;
     },
     async analyzeJob(input: JobInput) {
-      const value = await run(() => unwrap(window.interviewOS.analyzeJob(toIpcPayload(input))), 'JD 分析完成');
+      const value = await run(() => unwrap(window.interviewOS.analyzeJob(toIpcPayload(input))), '岗位分析完成');
       if (value) await refresh();
       return value;
     },
@@ -160,9 +160,19 @@ export function useWorkspace() {
       if (value) await refresh();
       return value;
     },
+    async deleteJobFilterPreset(id: string) {
+      const value = await run(() => unwrap(window.interviewOS.deleteJobFilterPreset(id)), '筛选规则已删除');
+      if (value?.deleted) await refresh();
+      return value;
+    },
     async saveJobAlertRule(input: JobAlertRuleInput) {
       const value = await run(() => unwrap(window.interviewOS.saveJobAlertRule(toIpcPayload(input))), '提醒规则已保存');
       if (value) await refresh();
+      return value;
+    },
+    async deleteJobAlertRule(id: string) {
+      const value = await run(() => unwrap(window.interviewOS.deleteJobAlertRule(id)), '提醒规则已删除');
+      if (value?.deleted) await refresh();
       return value;
     },
     async validateJobSource(id: string) {
@@ -210,7 +220,7 @@ export function useWorkspace() {
       return run(() => unwrap(window.interviewOS.copyText(value)), notice);
     },
     async promoteSyncedJob(id: string) {
-      const value = await run(() => unwrap(window.interviewOS.promoteSyncedJob(id)), '岗位已进入 JD 中心');
+      const value = await run(() => unwrap(window.interviewOS.promoteSyncedJob(id)), '岗位已进入岗位分析');
       if (value) await refresh();
       return value;
     },
@@ -219,8 +229,32 @@ export function useWorkspace() {
       if (value) await refresh();
       return value;
     },
+    async bulkUpdateSyncedJobStatus(ids: string[], status: SyncedJobStatus) {
+      const value = await run(
+        () => unwrap(window.interviewOS.bulkUpdateSyncedJobStatus(ids, status)),
+        status === 'trashed' ? `已将 ${ids.length} 个岗位移入回收站` : undefined
+      );
+      if (value?.updated) await refresh();
+      return value;
+    },
+    async bulkRestoreSyncedJobs(ids: string[]) {
+      const value = await run(
+        () => unwrap(window.interviewOS.bulkRestoreSyncedJobs(ids)),
+        `已恢复 ${ids.length} 个岗位`
+      );
+      if (value?.restored) await refresh();
+      return value;
+    },
     async deleteSyncedJobPermanently(id: string) {
       const value = await run(() => unwrap(window.interviewOS.deleteSyncedJobPermanently(id)), '岗位已彻底删除');
+      if (value?.deleted) await refresh();
+      return value;
+    },
+    async bulkDeleteSyncedJobsPermanently(ids: string[]) {
+      const value = await run(
+        () => unwrap(window.interviewOS.bulkDeleteSyncedJobsPermanently(ids)),
+        `已彻底删除 ${ids.length} 个岗位`
+      );
       if (value?.deleted) await refresh();
       return value;
     },
@@ -256,6 +290,9 @@ export function useWorkspace() {
     },
     async exportMarkdown() {
       return run(() => unwrap(window.interviewOS.exportMarkdown()), 'Markdown 已导出');
+    },
+    async exportJobData(kind: 'csv' | 'json' | 'report') {
+      return run(() => unwrap(window.interviewOS.exportJobData(kind)), '岗位数据文件已导出');
     },
     async selectObsidianVault() {
       const value = await run(() => unwrap(window.interviewOS.selectObsidianVault()), '已连接 Obsidian Vault');

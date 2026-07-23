@@ -206,6 +206,58 @@ export class AtomicWorkspaceRepository {
     return { path: exportRoot, files, createdAt };
   }
 
+  async exportJobData(kind: 'csv' | 'json' | 'report'): Promise<ExportInfo> {
+    const createdAt = nowIso();
+    const exportRoot = path.join(this.rootDirectory, 'exports');
+    await mkdir(exportRoot, { recursive: true });
+    const baseName = `job-data-${stamp()}`;
+    const csvEscape = (value: unknown): string => {
+      const text = Array.isArray(value) ? value.join('|') : String(value ?? '');
+      return `"${text.replace(/"/g, '""')}"`;
+    };
+    const buildCsv = (): string => {
+      const headers = ['title', 'company', 'work_address', 'salary', 'education', 'experience', 'skills', 'source', 'publish_time', 'detail_url', 'match_score', 'trust_score', 'quality_score'];
+      const rows = this.state.syncedJobs.map((item) => [
+        item.title, item.company, item.location, item.salaryRange, item.education, item.experience, item.skills,
+        item.sourceName, item.postedAt ?? '', item.sourceUrl, item.matchScore, item.trustScore, item.qualityScore
+      ]);
+      return [headers.join(','), ...rows.map((row) => row.map(csvEscape).join(','))].join('\n');
+    };
+    const buildReport = (): string => {
+      const jobs = this.state.syncedJobs;
+      const averageQuality = jobs.length ? Math.round(jobs.reduce((sum, item) => sum + item.qualityScore, 0) / jobs.length) : 0;
+      const risks = jobs.filter((item) => item.riskFlags.length || item.biasFlags.length).length;
+      const topSkills = new Map<string, number>();
+      for (const skill of jobs.flatMap((item) => item.skills)) topSkills.set(skill, (topSkills.get(skill) ?? 0) + 1);
+      return [
+        '# Interview OS 岗位数据报告',
+        '',
+        `- 岗位总数：${jobs.length}`,
+        `- 平均数据质量：${averageQuality}`,
+        `- 风险待核验：${risks}`,
+        '',
+        '## 热门技能',
+        ...[...topSkills.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([skill, count]) => `- ${skill}: ${count}`),
+        '',
+        '## 来源统计',
+        ...this.state.jobSources.map((source) => {
+          const count = jobs.filter((job) => job.sourceSite === source.platform || job.sourceName.includes(source.platform) || source.platform.includes(job.sourceName)).length;
+          return `- ${source.name}: ${count}`;
+        })
+      ].join('\n');
+    };
+
+    const content = kind === 'csv'
+      ? `\ufeff${buildCsv()}`
+      : kind === 'json'
+        ? JSON.stringify(this.state.syncedJobs, null, 2)
+        : buildReport();
+    const extension = kind === 'csv' ? 'csv' : kind === 'json' ? 'json' : 'md';
+    const target = path.join(exportRoot, `${baseName}.${extension}`);
+    await writeFile(target, content, 'utf8');
+    return { path: target, files: 1, createdAt };
+  }
+
   private async readValidState(filePath: string): Promise<WorkspaceState | undefined> {
     try {
       const parsed = JSON.parse(await readFile(filePath, 'utf8')) as unknown;

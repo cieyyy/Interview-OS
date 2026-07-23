@@ -56,20 +56,26 @@ export function buildResumeDraft(state: WorkspaceState, jobId?: string): ResumeV
   const projectIds = relevantProjects(state, job);
   const selectedProjects = state.projects.filter((item) => projectIds.includes(item.id));
   const matchingSkills = profile.skills.filter((skill) => !job || job.rawText.toLocaleLowerCase().includes(skill.name.toLocaleLowerCase()));
-  const skillIds = (matchingSkills.length ? matchingSkills : profile.skills).slice(0, 10).map((item) => item.id);
+  const skillIds = (matchingSkills.length ? matchingSkills : (!job ? profile.skills : [])).slice(0, 10).map((item) => item.id);
+  const requirementKeywords = job?.requirements.map((item) => item.label).slice(0, 8) ?? [];
   const target = job?.title || profile.targetRoles[0] || profile.currentRole || '目标岗位';
   const company = job?.company?.trim();
   const highlights = selectedProjects.map((project) => {
     const action = project.actions || project.responsibilities;
     return `${project.name}：${action}${project.results ? `；${project.results}` : ''}`;
   }).slice(0, 6);
+  if (!highlights.length && requirementKeywords.length) {
+    highlights.push(`围绕岗位要求补充真实经历：${requirementKeywords.slice(0, 4).join('、')}。`);
+  }
   const years = profile.yearsExperience > 0 ? `${profile.yearsExperience} 年` : '';
   const skillNames = profile.skills.filter((item) => skillIds.includes(item.id)).map((item) => item.name).slice(0, 6);
+  const headlineKeywords = skillNames.length ? skillNames : requirementKeywords.slice(0, 6);
+  const requirementText = requirementKeywords.length ? `，重点回应 ${requirementKeywords.slice(0, 5).join('、')} 等岗位要求` : '';
   return {
     name: `${company ? `${company} · ` : ''}${target} 定向简历`,
     jobId: job?.id,
-    headline: `${target}${skillNames.length ? ` · ${skillNames.join(' / ')}` : ''}`,
-    summary: `具备${years || '实际'}${profile.currentRole || '相关岗位'}经验，能够围绕${target}要求，使用真实项目证据说明个人职责、关键行动和验证结果。`,
+    headline: `${target}${headlineKeywords.length ? ` · ${headlineKeywords.join(' / ')}` : ''}`,
+    summary: `具备${years || '实际'}${profile.currentRole || '相关岗位'}经验，能够围绕${target}要求${requirementText}，使用真实项目证据说明个人职责、关键行动和验证结果。`,
     highlights,
     projectIds,
     skillIds,

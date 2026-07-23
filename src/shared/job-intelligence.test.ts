@@ -62,8 +62,11 @@ describe('job intelligence', () => {
     });
     expect(greeting).toContain('云原生运维工程师');
     expect(greeting).toContain('Kubernetes');
-    expect(greeting).toContain('示例科技-云原生定向版');
     expect(greeting).toContain('负责 Kubernetes 集群发布与故障排查');
+    expect(greeting).not.toContain('示例科技-云原生定向版');
+    expect(greeting).not.toContain('定向简历');
+    expect(greeting).not.toContain('量身');
+    expect(greeting).not.toContain('为该岗位准备');
     expect(greeting).not.toContain('我会基于');
   });
 

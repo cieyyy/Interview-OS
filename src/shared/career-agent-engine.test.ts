@@ -26,4 +26,15 @@ describe('career agent engine', () => {
     const answer = buildCareerAnswer('为什么推荐？', state, matches.map((item) => item.id));
     expect(answer).toContain('匹配度');
   });
+  it('builds a target-job-specific capability graph', () => {
+    const state = createDemoState();
+
+    const cloudGraph = buildSkillGraph(state, 'demo-job-cloud').map((item) => item.name);
+    const designGraph = buildSkillGraph(state, 'demo-job-design').map((item) => item.name);
+
+    expect(cloudGraph).toContain('Kubernetes');
+    expect(cloudGraph).not.toContain('Figma');
+    expect(designGraph).toContain('Figma');
+    expect(designGraph).not.toContain('Kubernetes');
+  });
 });

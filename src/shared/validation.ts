@@ -162,11 +162,11 @@ export function validateProjectInput(input: ProjectInput): ProjectInput {
 }
 
 export function validateJobInput(input: JobInput): JobInput {
-  if (!input) throw new ValidationError('JD 数据不能为空');
+  if (!input) throw new ValidationError('岗位数据不能为空');
   return {
     title: cleanText(input.title, '岗位名称', 160),
     company: cleanText(input.company ?? '', '公司名称', 160, false),
-    rawText: cleanText(input.rawText, 'JD 原文', 100_000)
+    rawText: cleanText(input.rawText, '岗位描述原文', 100_000)
   };
 }
 
@@ -190,7 +190,7 @@ export function validateJobApplicationInput(input: JobApplicationInput): JobAppl
   return {
     ...input,
     id: input.id ? cleanText(input.id, 'ID', 80) : undefined,
-    jobId: input.jobId ? cleanText(input.jobId, 'JD ID', 80) : undefined,
+    jobId: input.jobId ? cleanText(input.jobId, '岗位 ID', 80) : undefined,
     resumeVariantId: input.resumeVariantId ? cleanText(input.resumeVariantId, '简历版本 ID', 80) : undefined,
     company: cleanText(input.company ?? '', '公司名称', 160, false),
     title: cleanText(input.title ?? '', '岗位名称', 160, false),
@@ -216,7 +216,7 @@ export function validateResumeVariantInput(input: ResumeVariantInput): ResumeVar
   return {
     ...input,
     id: input.id ? cleanText(input.id, 'ID', 80) : undefined,
-    jobId: input.jobId ? cleanText(input.jobId, 'JD ID', 80) : undefined,
+    jobId: input.jobId ? cleanText(input.jobId, '岗位 ID', 80) : undefined,
     name: cleanText(input.name, '简历版本名称', 160),
     headline: cleanText(input.headline, '求职标题', 240),
     summary: cleanText(input.summary, '个人摘要', 10_000),
@@ -302,19 +302,13 @@ function mergeDefaultJobSources(existingSources: WorkspaceState['jobSources'] | 
 function mergeDefaultJobFilterPresets(existingPresets: WorkspaceState['jobFilterPresets'] | undefined): WorkspaceState['jobFilterPresets'] {
   const defaults = createDefaultJobFilterPresets();
   if (!Array.isArray(existingPresets)) return defaults;
-  const existingById = new Map(existingPresets.map((preset) => [preset.id, preset]));
-  const mergedDefaults = defaults.map((preset) => existingById.get(preset.id) ?? preset);
-  const defaultIds = new Set(defaults.map((preset) => preset.id));
-  return [...mergedDefaults, ...existingPresets.filter((preset) => !defaultIds.has(preset.id))];
+  return existingPresets;
 }
 
 function mergeDefaultJobAlertRules(existingRules: WorkspaceState['jobAlertRules'] | undefined): WorkspaceState['jobAlertRules'] {
   const defaults = createDefaultJobAlertRules();
   if (!Array.isArray(existingRules)) return defaults;
-  const existingById = new Map(existingRules.map((rule) => [rule.id, rule]));
-  const mergedDefaults = defaults.map((rule) => existingById.get(rule.id) ?? rule);
-  const defaultIds = new Set(defaults.map((rule) => rule.id));
-  return [...mergedDefaults, ...existingRules.filter((rule) => !defaultIds.has(rule.id))];
+  return existingRules;
 }
 
 export function validateJobFilterPresetInput(input: JobFilterPresetInput): JobFilterPresetInput {
@@ -418,7 +412,7 @@ export function validateTrainingStartInput(input: TrainingStartInput): TrainingS
   const coachModes = ['mock-interview', 'project-deep-dive', 'technical-qa', 'resume-follow-up', 'jd-analysis', 'english-interview'];
   if (input?.coachMode && !coachModes.includes(input.coachMode)) throw new ValidationError('职业教练模式无效');
   return {
-    jobId: input?.jobId ? cleanText(input.jobId, 'JD ID', 80) : undefined,
+    jobId: input?.jobId ? cleanText(input.jobId, '岗位 ID', 80) : undefined,
     projectId: input?.projectId ? cleanText(input.projectId, '项目 ID', 80) : undefined,
     projectIds: cleanEntityIds(input?.projectIds),
     resumeId: input?.resumeId ? cleanText(input.resumeId, '简历 ID', 80) : undefined,

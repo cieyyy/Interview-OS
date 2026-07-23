@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   SquareKanban,
   UserRound,
+  BriefcaseBusiness,
+  ChartNoAxesCombined,
   X
 } from '@lucide/vue';
 import { useWorkspace } from './composables/useWorkspace';
@@ -24,8 +26,11 @@ const route = useRoute();
 const { store, clearMessages } = useWorkspace();
 const navItems = [
   { to: '/', label: '工作台', icon: House },
+  { to: '/career-agent', label: '求职 Agent', icon: BriefcaseBusiness },
+  { to: '/profile', label: '职业档案', icon: UserRound },
   { to: '/job-sync', label: '岗位中心', icon: Radar },
-  { to: '/jobs', label: 'JD 分析', icon: FileSearch },
+  { to: '/job-insights', label: '岗位洞察', icon: ChartNoAxesCombined },
+  { to: '/jobs', label: '岗位分析', icon: FileSearch },
   { to: '/skill-graph', label: '能力成长', icon: GitBranch },
   { to: '/resumes', label: '简历工坊', icon: FileUser },
   { to: '/projects', label: '项目资产库', icon: UserRound },

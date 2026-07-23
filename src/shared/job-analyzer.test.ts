@@ -22,5 +22,32 @@ describe('analyzeJob', () => {
     expect(result.requirements).toHaveLength(1);
     expect(result.requirements[0].label).toBe('岗位职责与相关经验');
   });
-});
+  it('does not use other JD analysis notes as evidence for a selected job', () => {
+    const state = createDemoState();
+    state.profile.skills = [];
+    state.projects = [];
+    state.knowledge = [{
+      id: 'other-jd-note',
+      type: 'jd',
+      title: '其他岗位 JD 分析',
+      contentMarkdown: 'Python Java 解决方案 产品 沟通',
+      tags: ['JD 分析', 'Python'],
+      status: 'review',
+      source: '自动生成',
+      relatedIds: [],
+      jobIds: ['other-job'],
+      projectIds: [],
+      skillNames: ['Python'],
+      visibility: 'private',
+      createdAt: '2026-07-23T00:00:00.000Z',
+      updatedAt: '2026-07-23T00:00:00.000Z'
+    }];
 
+    const result = analyzeJob({ title: 'Python 测试工程师', rawText: '要求熟悉 Python' }, state);
+    const python = result.requirements.find((item) => item.label === 'Python');
+
+    expect(python?.matchStatus).toBe('gap');
+    expect(python?.evidenceIds).toHaveLength(0);
+    expect(python?.evidenceSummary).not.toContain('其他岗位 JD 分析');
+  });
+});

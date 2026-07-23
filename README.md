@@ -1,10 +1,10 @@
 # Interview OS
 
-> 当前源码版本：0.7.0
+> 当前源码版本：0.8.0
 
 Interview OS 是一款本地优先、AI 增强的 Windows 个人职业 AI 操作系统。它把岗位发现、JD 分析、能力匹配、定向简历、项目资产、AI 职业教练、知识沉淀和投递管理组织在同一个本地工作区中。
 
-## v0.7.0 当前能力
+## v0.8.0 当前能力
 
 - 工作台：围绕今日任务、今日训练、待优化回答、待学习技能和目标岗位组织行动。
 - AI 职业教练：统一原 AI 助手与面试训练，支持模拟面试、项目深挖、技术问答、简历追问、JD 分析和英语面试。
@@ -26,7 +26,7 @@ Interview OS 是一款本地优先、AI 增强的 Windows 个人职业 AI 操作
 - 招聘平台 MCP、公司官网监控和外部推送仍需逐连接器验收；浏览器插件已支持列表页识别与详情页补全，但各平台选择器仍需持续维护。
 - 自动沟通和自动投递保持关闭，任何外部写操作必须由用户确认。
 - Obsidian 当前为单向导出；导入、文件监听和双向同步属于后续阶段。
-- v0.7.0 Windows 安装版和便携版已可生成并通过打包应用冒烟测试；正式发布时仍需核对 GitHub Release 资产和 SHA-256。
+- v0.8.0 Windows 安装版和便携版由发布流程生成；首次运行未签名版本前应核对 GitHub Release 资产和 SHA-256。
 
 ## 开发命令
 
@@ -68,6 +68,7 @@ python scripts/build_product_pdf.py
 - [v0.5→v0.6 迁移报告](./docs/migrations/V0.5_TO_V0.6_MIGRATION_REPORT.md)
 - [v0.6.0 发布说明](./docs/releases/v0.6.0.md)
 - [v0.7.0 发布说明](./docs/releases/v0.7.0.md)
+- [v0.8.0 发布说明](./docs/releases/v0.8.0.md)
 - [v0.6.0 测试报告](./docs/testing/test-report-v0.6.0.md)
 - [v0.6.0 界面截图与视觉审计](./docs/screenshots/v0.6.0/README.md)
 - [使用指南](./docs/user-guide.md)
@@ -82,7 +83,7 @@ python scripts/build_product_pdf.py
 
 ## 测试基线
 
-- 18 个测试文件、81 个单元与集成测试通过。
+- 19 个测试文件、86 个单元与集成测试通过。
 - Vue/TypeScript 类型检查与生产构建通过。
 - Electron 主流程和 12 个主模块字体一致性 E2E 通过。
 - Windows 安装包、便携版生成成功，打包应用冒烟测试通过。
