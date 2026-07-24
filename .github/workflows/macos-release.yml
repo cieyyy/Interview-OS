@@ -35,13 +35,6 @@ jobs:
       - run: npm run typecheck
       - name: Package macOS
         run: npm run package:mac -- --${{ matrix.arch }}
-      - name: Smoke test packaged Intel application
-        if: matrix.arch == 'x64'
-        shell: bash
-        run: |
-          APP_EXECUTABLE="$(find release -path '*/Interview OS.app/Contents/MacOS/Interview OS' -type f | head -n 1)"
-          test -n "$APP_EXECUTABLE"
-          INTERVIEW_OS_PACKAGED_EXECUTABLE="$APP_EXECUTABLE" npm run test:packaged
       - uses: actions/upload-artifact@v4
         with:
           name: Interview-OS-mac-${{ matrix.arch }}
@@ -49,6 +42,13 @@ jobs:
             release/Interview-OS-*-mac-${{ matrix.arch }}.dmg
             release/Interview-OS-*-mac-${{ matrix.arch }}.zip
           if-no-files-found: error
+      - name: Smoke test packaged Intel application
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          APP_EXECUTABLE="$(find release -path '*/Interview OS.app/Contents/MacOS/Interview OS' -type f | head -n 1)"
+          test -n "$APP_EXECUTABLE"
+          INTERVIEW_OS_PACKAGED_EXECUTABLE="$APP_EXECUTABLE" npm run test:packaged
 
   publish:
     name: Publish macOS assets

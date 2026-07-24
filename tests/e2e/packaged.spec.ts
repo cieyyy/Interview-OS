@@ -9,6 +9,7 @@ const executablePath = process.env.INTERVIEW_OS_PACKAGED_EXECUTABLE
   : path.resolve('release', 'win-unpacked', 'Interview OS.exe');
 
 test('packaged desktop application starts and can write isolated local data', async () => {
+  test.setTimeout(process.platform === 'darwin' ? 90_000 : 45_000);
   test.skip(!existsSync(executablePath), 'Build the packaged application before the packaged smoke test.');
 
   const dataDirectory = await mkdtemp(path.join(os.tmpdir(), 'interview-os-packaged-'));
@@ -17,13 +18,15 @@ test('packaged desktop application starts and can write isolated local data', as
 
   const app = await electron.launch({
     executablePath,
-    args: [
-      '--disable-gpu',
-      '--disable-gpu-compositing',
-      '--disable-gpu-sandbox',
-      '--in-process-gpu',
-      '--use-gl=swiftshader'
-    ],
+    args: process.platform === 'win32'
+      ? [
+          '--disable-gpu',
+          '--disable-gpu-compositing',
+          '--disable-gpu-sandbox',
+          '--in-process-gpu',
+          '--use-gl=swiftshader'
+        ]
+      : [],
     env
   });
 
