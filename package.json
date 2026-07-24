@@ -20,7 +20,7 @@
     "capture:ui": "npm run build && node scripts/capture-ui-screenshots.cjs",
     "audit:resumes": "npm run build:electron && node scripts/audit-resume-import.cjs",
     "package:win": "npm run build && electron-builder --win",
-    "package:mac": "npm run build && electron-builder --mac"
+    "package:mac": "npm run build && electron-builder --mac --publish never"
   },
   "dependencies": {
     "@lucide/vue": "^1.25.0",
