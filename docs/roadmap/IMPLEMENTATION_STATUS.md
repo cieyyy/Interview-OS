@@ -9,11 +9,11 @@
 - [x] Cross-platform packaged smoke-test path
 - [x] GitHub Actions dual-architecture build workflow
 - [x] Source tests, type checking and production build
-- [ ] GitHub macOS runner package verification
-- [ ] macOS application bundle and process-launch verification
+- [x] GitHub macOS runner package verification
+- [x] macOS application bundle and process-launch verification
 - [ ] macOS interactive UI smoke test on physical Mac hardware
-- [ ] macOS SHA-256 manifest
-- [ ] v0.8.1 GitHub Release publishing
+- [x] macOS SHA-256 manifest
+- [x] v0.8.1 GitHub Release publishing
 
 ## v0.8.0 Multi-source Job Workflow Upgrade
 
