@@ -14,7 +14,7 @@
 | 本地存储 | schema v2 原子 JSON + Markdown 导出 | 易迁移、易备份、易测试，后续可增加 SQLite 索引 |
 | 密钥 | Electron `safeStorage` | API Key 不写入普通工作区和导出文件 |
 | 测试 | Vitest + Playwright Electron | 覆盖领域逻辑、存储、IPC 服务和真实桌面流程 |
-| 打包 | electron-builder | 生成 NSIS 安装版和便携版 |
+| 打包 | electron-builder | 生成 Windows NSIS/便携版及 macOS DMG/ZIP |
 
 ## 2. 进程与信任边界
 

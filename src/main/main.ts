@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, shell } from 'electron';
+import type { MenuItemConstructorOptions } from 'electron';
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { registerIpc } from './ipc/register-ipc';
@@ -16,15 +17,64 @@ if (process.env.INTERVIEW_OS_DATA_DIR) {
   app.setPath('userData', isolatedUserData);
 }
 
-// Keep the desktop client usable on older Windows installations and virtual
-// machines whose GPU process cannot load. The product UI does not depend on
-// hardware acceleration, so software rendering is the safer default.
-app.disableHardwareAcceleration();
-app.commandLine.appendSwitch('disable-gpu');
-app.commandLine.appendSwitch('disable-gpu-compositing');
+// Keep the Windows client usable on older installations and virtual machines
+// whose GPU process cannot load. macOS retains native acceleration.
+if (process.platform === 'win32') {
+  app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('disable-gpu-compositing');
+}
 
 let mainWindow: BrowserWindow | undefined;
 let jobSyncService: JobSyncService | undefined;
+
+function configureApplicationMenu(): void {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: '编辑',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'pasteAndMatchStyle' },
+        { role: 'delete' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: '窗口',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        { type: 'separator' },
+        { role: 'front' }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
 
 function resolveDataDirectory(): string {
   if (process.env.INTERVIEW_OS_DATA_DIR) return path.resolve(process.env.INTERVIEW_OS_DATA_DIR);
@@ -36,7 +86,7 @@ function resolveDataDirectory(): string {
 }
 
 async function createWindow(): Promise<void> {
-  Menu.setApplicationMenu(null);
+  configureApplicationMenu();
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -53,7 +103,7 @@ async function createWindow(): Promise<void> {
       webSecurity: true
     }
   });
-  mainWindow.removeMenu();
+  if (process.platform !== 'darwin') mainWindow.removeMenu();
 
   // Speech recognition needs microphone access. Only the current application
   // window may request audio; camera, display capture and all unrelated

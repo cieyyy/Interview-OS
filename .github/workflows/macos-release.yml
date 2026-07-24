@@ -1,0 +1,76 @@
+name: macOS Release
+
+on:
+  push:
+    tags:
+      - 'v0.8.1'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing or new release tag
+        required: true
+        default: v0.8.1
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build macOS ${{ matrix.arch }}
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - name: Package macOS
+        run: npm run package:mac -- --${{ matrix.arch }}
+      - name: Smoke test packaged Intel application
+        if: matrix.arch == 'x64'
+        shell: bash
+        run: |
+          APP_EXECUTABLE="$(find release -path '*/Interview OS.app/Contents/MacOS/Interview OS' -type f | head -n 1)"
+          test -n "$APP_EXECUTABLE"
+          INTERVIEW_OS_PACKAGED_EXECUTABLE="$APP_EXECUTABLE" npm run test:packaged
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Interview-OS-mac-${{ matrix.arch }}
+          path: |
+            release/Interview-OS-*-mac-${{ matrix.arch }}.dmg
+            release/Interview-OS-*-mac-${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish macOS assets
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Interview-OS-mac-*
+          path: release-macos
+          merge-multiple: true
+      - name: Generate SHA-256 manifest
+        working-directory: release-macos
+        run: sha256sum *.dmg *.zip > SHA256SUMS-macos-v0.8.1.txt
+      - name: Create or update GitHub Release
+        shell: bash
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --title "Interview OS $RELEASE_TAG" --notes-file docs/releases/v0.8.1.md
+          fi
+          gh release upload "$RELEASE_TAG" release-macos/* --clobber
