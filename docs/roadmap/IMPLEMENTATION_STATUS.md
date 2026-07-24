@@ -10,7 +10,8 @@
 - [x] GitHub Actions dual-architecture build workflow
 - [x] Source tests, type checking and production build
 - [ ] GitHub macOS runner package verification
-- [ ] macOS packaged application smoke test
+- [ ] macOS application bundle and process-launch verification
+- [ ] macOS interactive UI smoke test on physical Mac hardware
 - [ ] macOS SHA-256 manifest
 - [ ] v0.8.1 GitHub Release publishing
 

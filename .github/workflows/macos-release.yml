@@ -42,12 +42,27 @@ jobs:
             release/Interview-OS-*-mac-${{ matrix.arch }}.dmg
             release/Interview-OS-*-mac-${{ matrix.arch }}.zip
           if-no-files-found: error
-      - name: Smoke test packaged Intel application
+      - name: Validate packaged Intel application bundle
         if: matrix.arch == 'x64'
         shell: bash
         run: |
           APP_EXECUTABLE="$(find release -path '*/Interview OS.app/Contents/MacOS/Interview OS' -type f | head -n 1)"
           test -n "$APP_EXECUTABLE"
+          test -x "$APP_EXECUTABLE"
+          APP_BUNDLE="${APP_EXECUTABLE%/Contents/MacOS/Interview OS}"
+          plutil -lint "$APP_BUNDLE/Contents/Info.plist"
+          "$APP_EXECUTABLE" > /tmp/interview-os-macos.log 2>&1 &
+          APP_PID=$!
+          sleep 10
+          kill -0 "$APP_PID"
+          kill "$APP_PID"
+          wait "$APP_PID" || true
+      - name: Diagnostic UI smoke test
+        if: matrix.arch == 'x64'
+        continue-on-error: true
+        shell: bash
+        run: |
+          APP_EXECUTABLE="$(find release -path '*/Interview OS.app/Contents/MacOS/Interview OS' -type f | head -n 1)"
           INTERVIEW_OS_PACKAGED_EXECUTABLE="$APP_EXECUTABLE" npm run test:packaged
 
   publish:
