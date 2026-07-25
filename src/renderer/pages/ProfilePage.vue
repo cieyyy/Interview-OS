@@ -30,6 +30,18 @@ function normalizeProjectName(value: string): string {
   return value.normalize('NFKC').replace(/[\s_-]+/g, '').toLocaleLowerCase();
 }
 
+function buildProfileInput(): ProfileInput {
+  const levels: SkillLevel[] = ['了解', '熟悉', '掌握', '精通'];
+  return {
+    ...profile,
+    targetRoles: targetRolesText.value.split(/[,，]/).map((item) => item.trim()).filter(Boolean),
+    skills: skillsText.value.split(/[,，]/).map((entry) => {
+      const [name, rawLevel] = entry.split(/[:：]/).map((item) => item.trim());
+      return { name, level: levels.includes(rawLevel as SkillLevel) ? rawLevel as SkillLevel : '熟悉' };
+    }).filter((item) => item.name)
+  };
+}
+
 async function applyProfileImport(result: DocumentImportResult): Promise<void> {
   importWarnings.value = result.warnings;
   const imported = result.profile;
@@ -41,6 +53,7 @@ async function applyProfileImport(result: DocumentImportResult): Promise<void> {
     if (imported.education) profile.education = imported.education;
     if (imported.targetRoles?.length) targetRolesText.value = imported.targetRoles.join(', ');
     if (imported.skills?.length) skillsText.value = imported.skills.map((item) => `${item.name}:${item.level}`).join(', ');
+    await saveProfile(buildProfileInput());
   }
 
   const importedProjects = result.projects ?? [];
@@ -65,8 +78,8 @@ async function applyProfileImport(result: DocumentImportResult): Promise<void> {
   }
   const modeText = result.mode === 'ai-vision' ? 'AI 图片/OCR' : '本地规则';
   importSummary.value = importedProjects.length
-    ? `${modeText}识别完成：发现 ${importedProjects.length} 段项目经历并自动保存，新增 ${created} 条、更新 ${updated} 条${needsReview ? `，其中 ${needsReview} 条需要补充或核对` : ''}。`
-    : `${modeText}识别完成：已提取基础档案，但没有找到包含实际内容的项目经历；可切换到“项目经历”手动补充。`;
+    ? `${modeText}识别完成：基础职业档案已更新；发现 ${importedProjects.length} 段项目经历并自动保存，新增 ${created} 条、更新 ${updated} 条${needsReview ? `，其中 ${needsReview} 条需要补充或核对` : ''}。已有岗位分析已按最新档案重新计算。`
+    : `${modeText}识别完成：基础职业档案已更新，已有岗位分析已按最新档案重新计算；没有找到包含实际内容的项目经历，可切换到“项目经历”手动补充。`;
 }
 
 watchEffect(() => {
@@ -79,15 +92,7 @@ watchEffect(() => {
 });
 
 async function submitProfile(): Promise<void> {
-  const levels: SkillLevel[] = ['了解', '熟悉', '掌握', '精通'];
-  await saveProfile({
-    ...profile,
-    targetRoles: targetRolesText.value.split(/[,，]/).map((item) => item.trim()).filter(Boolean),
-    skills: skillsText.value.split(/[,，]/).map((entry) => {
-      const [name, rawLevel] = entry.split(/[:：]/).map((item) => item.trim());
-      return { name, level: levels.includes(rawLevel as SkillLevel) ? rawLevel as SkillLevel : '熟悉' };
-    }).filter((item) => item.name)
-  });
+  await saveProfile(buildProfileInput());
 }
 
 function resetProject(): void {

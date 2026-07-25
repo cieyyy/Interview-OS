@@ -48,6 +48,8 @@ export function registerIpc(
   ipcMain.handle(IPC.deleteKnowledge, (_event, id) => safe(() => workspace.deleteKnowledge(String(id))));
   ipcMain.handle(IPC.saveProject, (_event, input) => safe(() => workspace.saveProject(input)));
   ipcMain.handle(IPC.analyzeJob, (_event, input) => safe(() => workspace.analyzeJob(input)));
+  ipcMain.handle(IPC.deleteJobAnalysis, (_event, id) => safe(() => workspace.deleteJobAnalysis(String(id))));
+  ipcMain.handle(IPC.deleteJobAnalyses, (_event, ids) => safe(() => workspace.deleteJobAnalyses(Array.isArray(ids) ? ids.map(String) : [])));
   ipcMain.handle(IPC.saveApplication, (_event, input) => safe(() => workspace.saveApplication(input)));
   ipcMain.handle(IPC.saveResumeVariant, (_event, input) => safe(() => workspace.saveResumeVariant(input)));
   ipcMain.handle(IPC.saveJobSource, (_event, input) => safe(() => workspace.saveJobSource(input)));
@@ -74,6 +76,7 @@ export function registerIpc(
   ipcMain.handle(IPC.finalizeTraining, (_event, input) => safe(() => workspace.finalizeTraining(input)));
   ipcMain.handle(IPC.coachTraining, (_event, input) => safe(() => provider.coach(input)));
   ipcMain.handle(IPC.createBackup, () => safe(() => repository.createBackup()));
+  ipcMain.handle(IPC.clearWorkspaceData, () => safe(() => workspace.clearWorkspaceData()));
   ipcMain.handle(IPC.exportMarkdown, () => safe(() => repository.exportMarkdown()));
   ipcMain.handle(IPC.exportJobData, (_event, kind) => safe(() => repository.exportJobData(kind === 'json' || kind === 'report' ? kind : 'csv')));
   ipcMain.handle(IPC.saveProvider, (_event, input) => safe(() => provider.save(input)));

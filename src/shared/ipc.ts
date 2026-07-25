@@ -8,6 +8,7 @@ import type {
   CompanyWatchInput,
   AppMeta,
   BackupInfo,
+  DataCleanupResult,
   ConnectionResult,
   DocumentImportResult,
   DocumentImportTarget,
@@ -20,6 +21,8 @@ import type {
   JobFilterPresetInput,
   JobSyncBridgeStatus,
   JobDescription,
+  JobAnalysisDeletionResult,
+  JobAnalysesDeletionResult,
   JobInput,
   JobSourceConfig,
   JobSourceInput,
@@ -62,6 +65,8 @@ export const IPC = {
   deleteKnowledge: 'knowledge:delete',
   saveProject: 'project:save',
   analyzeJob: 'job:analyze',
+  deleteJobAnalysis: 'job:delete-analysis',
+  deleteJobAnalyses: 'job:delete-analyses',
   saveApplication: 'application:save',
   saveResumeVariant: 'resume-variant:save',
   saveJobSource: 'job-source:save',
@@ -88,6 +93,7 @@ export const IPC = {
   finalizeTraining: 'training:finalize',
   coachTraining: 'training:coach',
   createBackup: 'backup:create',
+  clearWorkspaceData: 'workspace:clear-data',
   exportMarkdown: 'export:markdown',
   exportJobData: 'export:job-data',
   saveProvider: 'provider:save',
@@ -118,6 +124,8 @@ export interface InterviewOSApi {
   deleteKnowledge(id: string): Promise<Result<{ deleted: boolean }>>;
   saveProject(input: ProjectInput): Promise<Result<ProjectExperience>>;
   analyzeJob(input: JobInput): Promise<Result<JobDescription>>;
+  deleteJobAnalysis(id: string): Promise<Result<JobAnalysisDeletionResult>>;
+  deleteJobAnalyses(ids: string[]): Promise<Result<JobAnalysesDeletionResult>>;
   saveApplication(input: JobApplicationInput): Promise<Result<JobApplication>>;
   saveResumeVariant(input: ResumeVariantInput): Promise<Result<ResumeVariant>>;
   saveJobSource(input: JobSourceInput): Promise<Result<JobSourceConfig>>;
@@ -144,6 +152,7 @@ export interface InterviewOSApi {
   finalizeTraining(input: TrainingFinalizeInput): Promise<Result<TrainingSession>>;
   coachTraining(input: TrainingCoachInput): Promise<Result<TrainingCoachResult>>;
   createBackup(): Promise<Result<BackupInfo>>;
+  clearWorkspaceData(): Promise<Result<DataCleanupResult>>;
   exportMarkdown(): Promise<Result<ExportInfo>>;
   exportJobData(kind: 'csv' | 'json' | 'report'): Promise<Result<ExportInfo>>;
   saveProvider(input: ProviderInput): Promise<Result<ProviderConfig>>;

@@ -140,6 +140,26 @@ export function useWorkspace() {
       if (value) await refresh();
       return value;
     },
+    async deleteJobAnalysis(id: string) {
+      const value = await run(() => {
+        if (typeof window.interviewOS.deleteJobAnalysis !== 'function') {
+          throw new Error('岗位分析删除接口已更新，请完全退出 Interview OS 后重新运行 npm.cmd run dev');
+        }
+        return unwrap(window.interviewOS.deleteJobAnalysis(id));
+      }, '岗位分析已删除，备份已保留');
+      if (value?.deleted) await refresh();
+      return value;
+    },
+    async deleteJobAnalyses(ids: string[]) {
+      const value = await run(() => {
+        if (typeof window.interviewOS.deleteJobAnalyses !== 'function') {
+          throw new Error('岗位分析批量删除接口已更新，请完全退出 Interview OS 后重新运行 npm.cmd run dev');
+        }
+        return unwrap(window.interviewOS.deleteJobAnalyses(toIpcPayload(ids)));
+      }, '岗位分析已批量删除，备份已保留');
+      if (value?.deleted) await refresh();
+      return value;
+    },
     async saveApplication(input: JobApplicationInput) {
       const value = await run(() => unwrap(window.interviewOS.saveApplication(toIpcPayload(input))), '求职进展已保存');
       if (value) await refresh();
@@ -287,6 +307,19 @@ export function useWorkspace() {
     },
     async createBackup() {
       return run(() => unwrap(window.interviewOS.createBackup()), '备份已创建');
+    },
+    async clearWorkspaceData() {
+      const value = await run(() => {
+        if (typeof window.interviewOS.clearWorkspaceData !== 'function') {
+          throw new Error('数据清理接口已更新，请完全退出 Interview OS 后重新运行 npm.cmd run dev');
+        }
+        return unwrap(window.interviewOS.clearWorkspaceData());
+      }, '本地业务数据已清理，自动备份已保留');
+      if (value) {
+        store.workspace = value.state;
+        store.activeSession = undefined;
+      }
+      return value;
     },
     async exportMarkdown() {
       return run(() => unwrap(window.interviewOS.exportMarkdown()), 'Markdown 已导出');
