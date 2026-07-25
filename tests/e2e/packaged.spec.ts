@@ -28,7 +28,7 @@ test('packaged Windows application starts and can write isolated local data', as
   try {
     const page = await app.firstWindow();
     expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu() === null)).toBe(true);
-    await expect(page.getByRole('heading', { name: '把经历变成可表达的能力' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '今天，推进一件最重要的事' })).toBeVisible();
     await page.getByRole('button', { name: '加载演示数据' }).click();
     await expect(page.getByTestId('stat-projects')).toHaveText('1');
     await expect(page.getByTestId('stat-knowledge')).toHaveText('1');
