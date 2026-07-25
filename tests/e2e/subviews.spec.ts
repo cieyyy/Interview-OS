@@ -69,15 +69,18 @@ test('all child views preserve parent navigation and shared layout', async () =>
       await page.getByTestId(`coach-mode-${mode}`).click();
       await capture(`coach-${mode}`, 'coach');
     }
-    for (const [route, name] of [['#/career-agent', 'coach-career-agent'], ['#/reports', 'coach-reports']] as const) {
+    for (const [route, name, parent] of [
+      ['#/career-agent', 'career-agent', 'career-agent'],
+      ['#/reports', 'coach-reports', 'coach']
+    ] as const) {
       await page.evaluate((hash) => { window.location.hash = hash; }, route);
-      await capture(name, 'coach');
+      await capture(name, parent);
     }
 
     await page.evaluate(() => { window.location.hash = '#/profile'; });
-    await capture('resume-profile', 'resumes');
+    await capture('profile', 'profile');
     await page.getByTestId('profile-project-tab').click();
-    await capture('projects-editor-tab', 'resumes');
+    await capture('projects-editor-tab', 'profile');
     await page.evaluate(() => { window.location.hash = '#/profile?tab=projects'; });
     await capture('projects-deep-link', 'projects');
     await expect(page.locator('.project-form-card')).toHaveCSS('overflow-y', 'visible');
@@ -108,7 +111,7 @@ test('all child views preserve parent navigation and shared layout', async () =>
       }
     }
     await page.evaluate(() => { window.location.hash = '#/job-insights'; });
-    await capture('job-center-insights', 'job-sync');
+    await capture('job-insights', 'job-insights');
 
     await page.getByTestId('nav-jobs').click();
     await page.getByTestId('job-add').click();
