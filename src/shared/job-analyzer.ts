@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type {
   JobDescription,
   JobInput,
@@ -11,14 +10,23 @@ import type {
 } from './domain';
 import { nowIso } from './domain';
 
+function randomId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 const technologyKeywords = [
   'Kubernetes', 'K8s', 'ACK', 'Docker', 'Linux', 'Nginx', 'Redis', 'MySQL', 'PostgreSQL',
   'Prometheus', 'Grafana', 'Python', 'Java', 'Go', 'Git', 'CI/CD', 'Jenkins', 'RAG', 'Embedding',
   '大模型', 'LLM', 'API', '云计算', '阿里云', 'AWS', 'Azure', '微服务', '网络', 'SQL'
 ];
 
-const businessKeywords = ['客户', '解决方案', '售前', '交付', '业务', '产品', '成本', '稳定性', 'SLA'];
-const softSkillKeywords = ['沟通', '协作', '表达', '学习能力', '责任心', '抗压', '推动'];
+const businessKeywords = [
+  '客户', '解决方案', '售前', '交付', '业务', '产品', '成本', '稳定性', 'SLA',
+  '课程设计', '教研', '幼儿教育', '班级管理', '家校沟通', '活动策划',
+  '销售', '商务拓展', '渠道', '运营', '市场', '品牌', '内容', '用户增长',
+  '财务', '会计', '审计', '风控', '供应链', '质量管理', '生产管理'
+];
+const softSkillKeywords = ['沟通', '协作', '表达', '学习能力', '责任心', '抗压', '推动', '耐心', '服务意识', '亲和力'];
 const mustMarkers = ['必须', '熟练', '精通', '掌握', '负责', '要求'];
 const preferredMarkers = ['优先', '加分', '了解', '熟悉', '有经验'];
 
@@ -63,6 +71,7 @@ function collectEvidence(state: WorkspaceState, keyword: string): { ids: string[
   }
 
   for (const item of state.knowledge) {
+    if (item.type === 'jd') continue;
     const haystack = [item.title, item.contentMarkdown, ...item.tags].join(' ');
     if (includesIgnoreCase(haystack, keyword)) {
       ids.push(item.id);
@@ -93,7 +102,7 @@ export function analyzeJob(input: JobInput, state: WorkspaceState): JobDescripti
     const context = lines[0] ?? keyword;
     const evidence = collectEvidence(state, keyword);
     return {
-      id: randomUUID(),
+      id: randomId(),
       label: keyword,
       category: inferCategory(keyword),
       priority: inferPriority(context),
@@ -105,7 +114,7 @@ export function analyzeJob(input: JobInput, state: WorkspaceState): JobDescripti
 
   if (requirements.length === 0) {
     requirements.push({
-      id: randomUUID(),
+      id: randomId(),
       label: '岗位职责与相关经验',
       category: 'experience',
       priority: 'must',
@@ -116,7 +125,7 @@ export function analyzeJob(input: JobInput, state: WorkspaceState): JobDescripti
   }
 
   const tasks: PreparationTask[] = requirements.map((requirement) => ({
-    id: randomUUID(),
+    id: randomId(),
     title:
       requirement.matchStatus === 'evidenced'
         ? `复习并压缩 ${requirement.label} 的项目表达`
@@ -133,7 +142,7 @@ export function analyzeJob(input: JobInput, state: WorkspaceState): JobDescripti
   }));
 
   return {
-    id: randomUUID(),
+    id: randomId(),
     title: input.title,
     company: input.company ?? '',
     rawText: input.rawText,
@@ -143,4 +152,3 @@ export function analyzeJob(input: JobInput, state: WorkspaceState): JobDescripti
     updatedAt: now
   };
 }
-

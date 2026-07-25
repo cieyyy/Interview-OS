@@ -34,7 +34,7 @@ const entityOptions: Array<{ value: ObsidianEntityType; label: string }> = [
   { value: 'technical-knowledge', label: '技术知识' },
   { value: 'interview-question', label: '面试问题' },
   { value: 'interview-answer', label: '回答与表达训练' },
-  { value: 'jd-analysis', label: 'JD 分析' },
+  { value: 'jd-analysis', label: '岗位分析' },
   { value: 'learning-plan', label: '学习计划' },
   { value: 'company-research', label: '公司研究' },
   { value: 'retrospective', label: '求职复盘' },
@@ -170,7 +170,7 @@ async function disconnect(): Promise<void> {
           <label>技术知识<input v-model="form.folderMapping.technicalKnowledge" class="input" /></label>
           <label>面试题库<input v-model="form.folderMapping.interviewQuestions" class="input" /></label>
           <label>表达训练<input v-model="form.folderMapping.expressionTraining" class="input" /></label>
-          <label>JD 分析<input v-model="form.folderMapping.jdAnalysis" class="input" /></label>
+          <label>岗位分析<input v-model="form.folderMapping.jdAnalysis" class="input" /></label>
         </div>
       </details>
 

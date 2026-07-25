@@ -1,13 +1,20 @@
 const SITE_CONFIGS = [
   {
     hosts: ['zhipin.com'], site: 'boss', name: 'BOSS 直聘',
-    cards: ['.job-card-wrapper', '.job-card-box', 'li.job-card-wrapper'],
-    title: ['.job-name', '.job-title', 'a.job-card-left'],
-    company: ['.company-name', '.company-info h3'],
-    location: ['.job-area', '.job-location'], salary: ['.salary'],
-    link: ['a[href*="/job_detail/"]'],
+    cards: [
+      '.job-card-wrapper', '.job-card-box', 'li.job-card-wrapper',
+      '.recommend-job-item', '.job-recommend-item', '.interest-job-item',
+      '.job-list-item', '[class*="recommend-job"]', '[class*="job-card"]'
+    ],
+    title: ['.job-name', '.job-title', '.position-name', '[class*="job-name"]', '[class*="job-title"]', 'a.job-card-left'],
+    company: ['.company-name', '.company-info h3', '[class*="company-name"]', 'a[href*="/gongsi/"]'],
+    location: ['.job-area', '.job-location', '.job-address', '[class*="job-area"]'], salary: ['.salary', '[class*="salary"]'],
+    link: ['a[href*="/job_detail/"]', 'a[href*="job_detail"]', '[data-url*="job_detail"]', '[data-href*="job_detail"]'],
     detailTitle: ['.job-banner h1', '.job-title', '.name h1', 'h1'],
-    detailCompany: ['.company-info h3', '.company-name', '.sider-company h3'],
+    detailCompany: [
+      '.company-info h3', '.company-info a[href*="/gongsi/"]',
+      '.company-name', '.sider-company h3', 'a[href*="/gongsi/"][href$=".html"]'
+    ],
     detailLocation: ['.job-location', '.job-address', '.job-banner .info-primary'],
     detailAddress: ['.job-location .location-address', '.location-address', '.job-address', '.map-container .address', '[class*="address"]'],
     detailSalary: ['.salary', '.job-salary'],
@@ -15,10 +22,10 @@ const SITE_CONFIGS = [
   },
   {
     hosts: ['liepin.com'], site: 'liepin', name: '猎聘',
-    cards: ['.job-card-pc-container', '.job-card-container', '[data-job-id]'],
-    title: ['.job-title-box', '.job-title'], company: ['.company-name'],
+    cards: ['.job-card-pc-container', '.job-card-container', '[data-job-id]', '[class*="job-card"]'],
+    title: ['.job-title-box', '.job-title', '[class*="job-title"]'], company: ['.company-name', '[class*="company-name"]'],
     location: ['.job-dq-box', '.job-area'], salary: ['.job-salary'],
-    link: ['a[href*="/job/"]', 'a[href*="/a/"]'],
+    link: ['a[href*="/job/"]', 'a[href*="/a/"]', 'a[href$=".shtml"]'],
     detailTitle: ['.job-title', '.name-box h1', 'h1'],
     detailCompany: ['.company-name', '.company-card h3', 'a[href*="/company/"]'],
     detailLocation: ['.job-properties', '.job-dq-box', '.job-area'],
@@ -31,9 +38,9 @@ const SITE_CONFIGS = [
     cards: ['.joblist-box__item', '[data-jobid]', '.joblist-box__iteminfo'],
     title: ['.jobinfo__name', '.iteminfo__line1__jobname', '.job-name'],
     company: ['.companyinfo__name', '.iteminfo__line1__compname', '.company-name'],
-    location: ['.jobinfo__other-info-item', '.iteminfo__line2__jobdesc__demand', '.job-address'],
+    location: ['.jobinfo__other-info-item', '.iteminfo__line2__jobdesc__demand__item:first-child', '.iteminfo__line2__jobdesc__demand', '.job-address'],
     salary: ['.jobinfo__salary', '.iteminfo__line2__jobdesc__salary', '.salary'],
-    link: ['.jobinfo__name[href*="/jobdetail/"]', 'a[href*="/jobdetail/"]', 'a[href*="/jobs/"]'],
+    link: ['.jobinfo__name[href*="/jobdetail/"]', 'a[href*="/jobdetail/"]', 'a[href*="jobs.zhaopin.com/"]', 'a[href*="/jobs/"]'],
     detailTitle: ['.summary-planes__title', '.summary-plane__title', '.job-detail__title', '.job-name', '.position-title', 'h1'],
     detailCompany: ['.company-info__name', '.company__title', '.company-name', '.com-name', 'a[href*="/company"]'],
     detailLocation: ['.address-info__content', '.summary-planes__info', '.summary-plane__info', '.job-address', '.work-address', '.job-detail__address'],
@@ -43,10 +50,10 @@ const SITE_CONFIGS = [
   },
   {
     hosts: ['51job.com'], site: '51job', name: '前程无忧',
-    cards: ['.joblist-item', '.joblist .e', '[data-jobid]'],
+    cards: ['.joblist-item', '.joblist-item-job', '.joblist .e', '[data-jobid]', '[sensorsdata*="jobId"]'],
     title: ['.jname', '.job-name'], company: ['.cname', '.company-name'],
     location: ['.area', '.d', '.job-area'], salary: ['.sal', '.salary'],
-    link: ['a[href*="/job/"]', 'a[href*="jobs.51job.com"]'],
+    link: ['a[href*="/job/"]', 'a[href*="jobs.51job.com/"]'],
     detailTitle: ['.cn h1', '.job-name', 'h1'],
     detailCompany: ['.cname a', '.company-name', '.com_name'],
     detailLocation: ['.msg', '.job-address', '.job-area'],
@@ -56,10 +63,10 @@ const SITE_CONFIGS = [
   },
   {
     hosts: ['lagou.com'], site: 'lagou', name: '拉勾',
-    cards: ['.item__10RTO', '.con_list_item', '[data-positionid]'],
-    title: ['.position__21iOS', '.position_link h3', '.job-name'], company: ['.company__2EsC8', '.company_name'],
+    cards: ['.item__10RTO', '.con_list_item', '[data-positionid]', '[class*="position-card"]', '[class*="job-card"]'],
+    title: ['.position__21iOS', '.position_link h3', '.job-name', '[class*="position-name"]', '[class*="job-name"]'], company: ['.company__2EsC8', '.company_name', '[class*="company-name"]'],
     location: ['.p-bom__JlNur', '.add'], salary: ['.money__3Lkgq', '.money'],
-    link: ['a[href*="/jobs/"]'],
+    link: ['a[href*="/jobs/"]', 'a[href*="/wn/jobs/"]'],
     detailTitle: ['.position-head h1', '.job-name', 'h1'],
     detailCompany: ['.company', '.company-name', '.company_name'],
     detailLocation: ['.job_request', '.job-address', '.add'],
@@ -90,10 +97,79 @@ function textFrom(root, selectors) {
 function hrefFrom(root, selectors) {
   for (const selector of selectors) {
     const node = root.matches?.(selector) ? root : root.querySelector(selector);
-    const href = node?.getAttribute?.('href');
+    const href = node?.getAttribute?.('href')
+      || node?.getAttribute?.('data-url')
+      || node?.getAttribute?.('data-href')
+      || node?.getAttribute?.('data-link');
     if (href) return new URL(href, location.href).toString();
   }
   return location.href;
+}
+
+function parseCardMetadata(card) {
+  const node = card.matches?.('[sensorsdata]') ? card : card.querySelector?.('[sensorsdata]');
+  const raw = node?.getAttribute?.('sensorsdata');
+  if (!raw) return {};
+  try {
+    const value = JSON.parse(raw);
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function sourceUrlFromCard(card, config) {
+  const metadata = parseCardMetadata(card);
+  if (config.site === '51job' && metadata.jobId) {
+    return `https://jobs.51job.com/all/${encodeURIComponent(String(metadata.jobId))}.html`;
+  }
+  return hrefFrom(card, config.link);
+}
+
+function linkTextFrom(card, selectors) {
+  for (const selector of selectors) {
+    const node = card.matches?.(selector) ? card : card.querySelector(selector);
+    const text = node?.textContent?.replace(/\s+/g, ' ').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function titleFromLinkText(value) {
+  return String(value || '')
+    .replace(/\s*[\[【]\s*[^\]】]{2,80}[\]】]\s*$/u, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function locationFromLinkText(value) {
+  return String(value || '').match(/[\[【]\s*([^\]】]{2,80})[\]】]/u)?.[1]?.trim() || '';
+}
+
+function salaryFromText(value) {
+  return String(value || '').match(/\d+(?:\.\d+)?\s*[-~至]\s*\d+(?:\.\d+)?\s*(?:[kK]|千|万|元)(?:\s*[·x×]\s*\d+薪)?/u)?.[0]?.trim() || '';
+}
+
+function looksLikeJobCard(node) {
+  const text = node?.textContent?.replace(/\s+/g, ' ').trim() || '';
+  if (text.length < 16 || text.length > 1200) return false;
+  const hasSalary = /(?:\d+(?:\.\d+)?\s*[-~至]\s*\d+(?:\.\d+)?\s*[kK]|\d+\s*[-~至]\s*\d+\s*(?:千|万|元))/u.test(text);
+  const hasJobSignal = /(?:工程师|开发|测试|运维|产品|设计|顾问|经理|招聘|技术支持|技术员|专员|助理|主管|总监|算法|运营|销售|客服|会计|财务|人事|行政|采购|物流|仓储|生产|质量|教师|医生|护士|实习)/u.test(text);
+  return hasSalary && hasJobSignal;
+}
+
+function closestJobCard(node) {
+  let current = node;
+  for (let depth = 0; current && depth < 7; depth += 1, current = current.parentElement) {
+    if (looksLikeJobCard(current)) return current;
+  }
+  return undefined;
+}
+
+function fallbackLinkedJobCards(config) {
+  if (config.site === '51job') return [];
+  const links = Array.from(document.querySelectorAll(config.link.join(',')));
+  return links.map(closestJobCard).filter(Boolean);
 }
 
 function externalId(url, card) {
@@ -139,16 +215,22 @@ function jsonLdJobs(config) {
 
 function visibleCardJobs(config) {
   const selector = config.cards.join(',');
-  const candidateCards = Array.from(document.querySelectorAll(selector)).filter((card) => {
+  const configuredCards = Array.from(document.querySelectorAll(selector));
+  const fallbackCards = fallbackLinkedJobCards(config);
+  const fallbackSet = new Set(fallbackCards);
+  const candidateCards = [...new Set([...configuredCards, ...fallbackCards])].filter((card) => {
     if (!card.parentElement) return true;
-    return !config.cards.some((cardSelector) => card.parentElement.matches?.(cardSelector));
+    if (fallbackSet.has(card) && !looksLikeJobCard(card)) return false;
+    return !config.cards.some((cardSelector) => card.parentElement.matches?.(cardSelector) && looksLikeJobCard(card.parentElement));
   });
   return candidateCards.slice(0, 100).map((card) => {
-    const sourceUrl = hrefFrom(card, config.link);
-    const title = textFrom(card, config.title) || inferTitleFromCardText(card);
+    const metadata = parseCardMetadata(card);
+    const sourceUrl = sourceUrlFromCard(card, config);
+    const linkedText = linkTextFrom(card, config.link);
+    const title = textFrom(card, config.title) || String(metadata.jobTitle || '').trim() || titleFromLinkText(linkedText) || inferTitleFromCardText(card);
     const company = textFrom(card, config.company);
-    const locationText = textFrom(card, config.location);
-    const explicitId = card.getAttribute('data-job-id') || card.getAttribute('data-jobid') || card.getAttribute('data-positionid');
+    const locationText = textFrom(card, config.location) || String(metadata.jobArea || '').trim() || locationFromLinkText(linkedText);
+    const explicitId = card.getAttribute('data-job-id') || card.getAttribute('data-jobid') || card.getAttribute('data-positionid') || metadata.jobId;
     const rawCardText = card.textContent?.replace(/\s+/g, ' ').trim() || '';
     return {
       externalId: explicitId || (sourceUrl === location.href ? `${title}|${company}|${locationText}` : externalId(sourceUrl, card)),
@@ -156,10 +238,11 @@ function visibleCardJobs(config) {
       title,
       company,
       location: locationText,
-      salaryRange: textFrom(card, config.salary),
-      description: rawCardText.length > 2500 ? '' : cleanJobDescription(rawCardText, title, company).slice(0, 1000)
+      salaryRange: textFrom(card, config.salary) || String(metadata.jobSalary || '').trim() || salaryFromText(rawCardText),
+      description: rawCardText.length > 2500 ? '' : cleanJobDescription(rawCardText, title, company).slice(0, 1000),
+      postedAt: metadata.jobTime || undefined
     };
-  }).filter((item) => item.title && item.sourceUrl);
+  }).filter((item) => item.title && item.sourceUrl && item.sourceUrl !== location.href);
 }
 
 function inferTitleFromCardText(card) {
@@ -175,9 +258,19 @@ function metaContent(name) {
   return document.querySelector(`meta[property="${name}"],meta[name="${name}"]`)?.getAttribute('content')?.replace(/\s+/g, ' ').trim() || '';
 }
 
+function documentTitleMetadata(config) {
+  const title = cleanDetailText(document.title || '');
+  if (config.site === 'boss') {
+    const match = title.match(/^「(.+?)招聘」_(.+?)招聘-BOSS直聘$/u);
+    if (match) return { title: match[1].trim(), company: match[2].trim() };
+  }
+  return { title: '', company: '' };
+}
+
 function isLikelyDetailPage(config) {
   const href = location.href.toLowerCase();
   if (href.includes('jobdetail') || href.includes('job_detail') || /\/job\/|\/jobs\//.test(location.pathname.toLowerCase())) return true;
+  if (config.site === '51job' && /^\/(?:all|[a-z0-9-]+)\/\d+\.html/i.test(location.pathname)) return true;
   return Boolean(textFrom(document, config.detailTitle || []));
 }
 
@@ -263,13 +356,25 @@ function detailAddressFromPage(config) {
   return normalizeAddressCandidate(match?.[1] || '');
 }
 
+function detailDescriptionFromPage(config, title, company) {
+  const direct = textFrom(document, config.detailDescription || []);
+  if (direct) return cleanJobDescription(direct, title, company);
+
+  const heading = Array.from(document.querySelectorAll('h2,h3,h4'))
+    .find((node) => /^(职位描述|岗位职责|工作职责|工作内容|任职要求|岗位要求|职位要求)$/u.test(cleanDetailText(node.textContent || '')));
+  const container = heading?.parentElement;
+  return cleanJobDescription(container?.textContent || '', title, company);
+}
+
 function currentPageJob(config) {
   if (isBlockedPage()) return [];
   if (!isLikelyDetailPage(config)) return [];
-  const title = cleanDetailText(textFrom(document, config.detailTitle || config.title) || metaContent('og:title').split(/[-_|]/)[0]);
-  if (!title || title.length > 80 || /登录|注册|招聘|首页|访问验证|安全验证|滑动验证|验证码/u.test(title)) return [];
-  const company = cleanDetailText(textFrom(document, config.detailCompany || config.company) || metaContent('og:site_name'));
-  const description = cleanJobDescription(textFrom(document, config.detailDescription || []) || metaContent('description'), title, company);
+  const documentMetadata = documentTitleMetadata(config);
+  const title = cleanDetailText(textFrom(document, config.detailTitle || config.title) || documentMetadata.title || metaContent('og:title').split(/[-_|]/)[0]);
+  if (!title || title.length > 80 || /登录|注册|首页|访问验证|安全验证|滑动验证|验证码/u.test(title)) return [];
+  const company = cleanDetailText(textFrom(document, config.detailCompany || config.company) || documentMetadata.company || metaContent('og:site_name'));
+  const description = detailDescriptionFromPage(config, title, company)
+    || cleanJobDescription(metaContent('description'), title, company);
   return [{
     externalId: externalId(location.href, document.documentElement),
     sourceUrl: location.href,
@@ -298,8 +403,61 @@ function collectVisibleJobs(config) {
   return uniqueJobs([...jsonLdJobs(config), ...visibleCardJobs(config), ...currentPageJob(config)]).slice(0, 100);
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function collectAllLoadedListJobs() {
+  const config = siteConfig();
+  if (!config) return { ok: false, error: '当前网站暂未配置岗位适配器。' };
+  if (isBlockedPage()) return { ok: false, error: '当前页面是登录或验证页面，请先手动完成登录/验证后再同步。' };
+
+  const scrollingElement = document.scrollingElement || document.documentElement;
+  const initialTop = scrollingElement.scrollTop;
+  const collected = [];
+  let previousHeight = 0;
+  let previousCount = 0;
+  let stableRounds = 0;
+
+  for (let round = 0; round < 20 && stableRounds < 3; round += 1) {
+    collected.push(...collectVisibleJobs(config));
+    const currentHeight = scrollingElement.scrollHeight;
+    const currentCount = uniqueJobs(collected).length;
+    stableRounds = currentHeight === previousHeight && currentCount === previousCount
+      ? stableRounds + 1
+      : 0;
+    previousHeight = currentHeight;
+    previousCount = currentCount;
+    scrollingElement.scrollTop = currentHeight;
+    await delay(350);
+  }
+
+  collected.push(...collectVisibleJobs(config));
+  scrollingElement.scrollTop = initialTop;
+  const jobs = uniqueJobs(collected).slice(0, 100);
+  if (!jobs.length) return buildPayload('visible');
+  return {
+    ok: true,
+    payload: {
+      sourceSite: config.site,
+      sourceName: config.name,
+      pageUrl: location.href,
+      jobs
+    }
+  };
+}
+
 function collectDetailJobs(config) {
   return uniqueJobs([...currentPageJob(config), ...jsonLdJobs(config)]).slice(0, 5);
+}
+
+async function buildDetailPayloadWithRetry() {
+  let result = buildPayload('detail');
+  for (let attempt = 0; attempt < 4 && !result.ok; attempt += 1) {
+    await delay(650 + attempt * 250);
+    result = buildPayload('detail');
+  }
+  return result;
 }
 
 function buildPayload(mode = 'visible') {
@@ -307,12 +465,22 @@ function buildPayload(mode = 'visible') {
   if (!config) return { ok: false, error: '当前网站暂未配置岗位适配器。' };
   if (isBlockedPage()) return { ok: false, error: '当前页面是登录或验证页面，请先手动完成登录/验证后再同步。' };
   const jobs = mode === 'detail' ? collectDetailJobs(config) : collectVisibleJobs(config);
-  if (!jobs.length) return { ok: false, error: mode === 'detail' ? '当前详情页未识别到岗位详情。' : '当前页面未识别到可见岗位。' };
+  if (!jobs.length) {
+    const bossPersonalList = config.site === 'boss' && /\/web\/geek\/(?:recommend|chat|history)|tab=4|sub=1/i.test(location.href);
+    return {
+      ok: false,
+      error: mode === 'detail'
+        ? '当前页面不是可识别的岗位详情页。'
+        : bossPersonalList
+          ? '已识别为 BOSS 个人中心岗位列表，但页面没有暴露可打开的岗位详情链接。请点开一条岗位详情后同步，或刷新页面后重试批量同步。'
+          : '当前页面未识别到带详情链接的可见岗位。'
+    };
+  }
   return { ok: true, payload: { sourceSite: config.site, sourceName: config.name, pageUrl: location.href, jobs } };
 }
 
 async function syncVisibleJobs(force = false) {
-  const built = buildPayload('visible');
+  const built = buildPayload('detail');
   if (!built.ok) return built;
   const jobs = built.payload.jobs;
   const signature = jobs.map((item) => `${item.externalId}:${item.title}`).join('|');
@@ -329,22 +497,48 @@ function scheduleSync() {
   syncTimer = setTimeout(() => { void syncVisibleJobs(false); }, 1500);
 }
 
+let pageObserver;
+
+function stopAutoCapture() {
+  if (pageObserver) pageObserver.disconnect();
+  pageObserver = undefined;
+  window.removeEventListener('popstate', scheduleSync);
+  window.removeEventListener('hashchange', scheduleSync);
+}
+
+function startAutoCapture() {
+  if (pageObserver) return;
+  pageObserver = new MutationObserver(scheduleSync);
+  pageObserver.observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener('popstate', scheduleSync);
+  window.addEventListener('hashchange', scheduleSync);
+  scheduleSync();
+}
+
+function applyCaptureMode(mode) {
+  stopAutoCapture();
+  if (mode === 'auto') startAutoCapture();
+}
+
+chrome.storage.local.get({ captureMode: 'manual' }).then(({ captureMode }) => applyCaptureMode(captureMode));
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.captureMode) applyCaptureMode(changes.captureMode.newValue);
+});
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'FORCE_SYNC') {
     void syncVisibleJobs(true).then(sendResponse);
     return true;
   }
   if (message?.type === 'EXTRACT_VISIBLE_JOBS') {
-    sendResponse(buildPayload('visible'));
+    void collectAllLoadedListJobs().then(sendResponse);
     return true;
   }
   if (message?.type === 'EXTRACT_DETAIL_JOBS') {
-    sendResponse(buildPayload('detail'));
+    void buildDetailPayloadWithRetry().then(sendResponse);
     return true;
   }
   return false;
 });
 
-new MutationObserver(scheduleSync).observe(document.documentElement, { childList: true, subtree: true });
-window.addEventListener('popstate', scheduleSync);
-scheduleSync();
+// 手动模式只响应扩展按钮；自动模式仅对当前已打开的岗位详情页进行去重同步。

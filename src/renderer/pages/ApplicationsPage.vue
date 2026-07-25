@@ -135,11 +135,11 @@ async function copyGreeting(): Promise<void> {
     <form v-if="showForm" class="panel career-form" data-testid="application-form" @submit.prevent="submit">
       <div class="panel-heading"><div><span class="eyebrow">OPPORTUNITY</span><h3>{{ form.id ? '更新求职进展' : '新增职位机会' }}</h3></div></div>
       <div class="form-grid three">
-        <label>关联 JD<select v-model="form.jobId" class="input"><option value="">不关联</option><option v-for="job in store.workspace?.jobs" :key="job.id" :value="job.id">{{ job.company }} · {{ job.title }}</option></select></label>
+        <label>关联岗位分析<select v-model="form.jobId" class="input"><option value="">不关联</option><option v-for="job in store.workspace?.jobs" :key="job.id" :value="job.id">{{ job.company }} · {{ job.title }}</option></select></label>
         <label>公司<input v-model="form.company" class="input" /></label>
         <label>岗位<input v-model="form.title" class="input" required data-testid="application-title" /></label>
       </div>
-      <label>投递简历<select v-model="form.resumeVariantId" class="input"><option value="">请选择与该 JD 对应的定向简历</option><option v-for="resume in store.workspace?.resumeVariants" :key="resume.id" :value="resume.id" :disabled="Boolean(resume.jobId && resume.jobId !== form.jobId)">{{ resume.name }}{{ resume.jobId === form.jobId ? ' · 与当前 JD 匹配' : resume.jobId ? ' · 其他 JD' : ' · 通用版' }}</option></select><small class="field-hint">沟通话术会引用这份简历中的真实亮点；不同 JD 的定向简历不可混用。</small></label>
+      <label>投递简历<select v-model="form.resumeVariantId" class="input"><option value="">请选择与该岗位对应的定向简历</option><option v-for="resume in store.workspace?.resumeVariants" :key="resume.id" :value="resume.id" :disabled="Boolean(resume.jobId && resume.jobId !== form.jobId)">{{ resume.name }}{{ resume.jobId === form.jobId ? ' · 与当前岗位匹配' : resume.jobId ? ' · 其他岗位' : ' · 通用版' }}</option></select><small class="field-hint">沟通话术会引用这份简历中的真实亮点；不同岗位的定向简历不可混用。</small></label>
       <div class="form-grid three">
         <label>来源<input v-model="form.source" class="input" placeholder="官网 / Boss / 内推" /></label>
         <label>地点<input v-model="form.location" class="input" /></label>
@@ -156,7 +156,7 @@ async function copyGreeting(): Promise<void> {
         <label>下一步时间<input v-model="form.nextActionAt" class="input" type="datetime-local" /></label>
       </div>
       <div class="application-greeting-field">
-        <div><label>沟通话术草稿</label><span><button class="button ghost compact" type="button" :disabled="!form.jobId || !selectedResume" @click="generateGreeting"><Sparkles :size="14" />根据 JD + 投递简历生成</button><button class="icon-command" type="button" title="复制话术" aria-label="复制话术" data-testid="application-copy-greeting" @click="copyGreeting"><Copy :size="14" /></button></span></div>
+        <div><label>沟通话术草稿</label><span><button class="button ghost compact" type="button" :disabled="!form.jobId || !selectedResume" @click="generateGreeting"><Sparkles :size="14" />根据岗位 + 投递简历生成</button><button class="icon-command" type="button" title="复制话术" aria-label="复制话术" data-testid="application-copy-greeting" @click="copyGreeting"><Copy :size="14" /></button></span></div>
         <textarea v-model="form.greetingDraft" class="input compact-textarea" data-testid="application-greeting" placeholder="用于打招呼或申请备注；发送前请人工核对。"></textarea>
         <div class="submission-safety"><MessageSquareText :size="15" /><span><strong>投递方式</strong><small>当前只生成材料并记录进度，不会自动向招聘平台发送。</small></span><select v-model="form.submissionMode" class="input compact-select"><option value="manual">人工投递</option><option value="assisted">辅助投递（框架）</option></select></div>
       </div>
@@ -185,7 +185,7 @@ async function copyGreeting(): Promise<void> {
           <p v-if="!itemsFor(column.statuses).length" class="column-empty">暂无机会</p>
         </section>
       </div>
-      <div v-else class="empty-state career-empty"><div class="empty-icon"><WalletCards :size="22" /></div><h3>建立第一条求职机会</h3><p>可以先关联已经分析过的 JD，再持续更新投递阶段和下一步动作。</p><button class="button primary" type="button" @click="createOpportunity">新增机会</button></div>
+      <div v-else class="empty-state career-empty"><div class="empty-icon"><WalletCards :size="22" /></div><h3>建立第一条求职机会</h3><p>可以先关联已经分析过的岗位，再持续更新投递阶段和下一步动作。</p><button class="button primary" type="button" @click="createOpportunity">新增机会</button></div>
     </div>
   </section>
 </template>

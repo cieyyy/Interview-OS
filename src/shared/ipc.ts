@@ -66,7 +66,9 @@ export const IPC = {
   saveResumeVariant: 'resume-variant:save',
   saveJobSource: 'job-source:save',
   saveJobFilterPreset: 'job-filter:save',
+  deleteJobFilterPreset: 'job-filter:delete',
   saveJobAlertRule: 'job-alert:save',
+  deleteJobAlertRule: 'job-alert:delete',
   validateJobSource: 'job-source:validate',
   saveCareerSearchPlan: 'career-search-plan:save',
   runCareerSearchPlan: 'career-search-plan:run',
@@ -77,13 +79,17 @@ export const IPC = {
   getJobSyncStatus: 'job-sync:status',
   promoteSyncedJob: 'job-sync:promote',
   updateSyncedJobStatus: 'job-sync:update-status',
+  bulkUpdateSyncedJobStatus: 'job-sync:update-status-bulk',
+  bulkRestoreSyncedJobs: 'job-sync:restore-bulk',
   deleteSyncedJobPermanently: 'job-sync:delete-permanently',
+  bulkDeleteSyncedJobsPermanently: 'job-sync:delete-permanently-bulk',
   startTraining: 'training:start',
   submitTraining: 'training:submit',
   finalizeTraining: 'training:finalize',
   coachTraining: 'training:coach',
   createBackup: 'backup:create',
   exportMarkdown: 'export:markdown',
+  exportJobData: 'export:job-data',
   saveProvider: 'provider:save',
   testProvider: 'provider:test',
   getMeta: 'app:get-meta',
@@ -116,7 +122,9 @@ export interface InterviewOSApi {
   saveResumeVariant(input: ResumeVariantInput): Promise<Result<ResumeVariant>>;
   saveJobSource(input: JobSourceInput): Promise<Result<JobSourceConfig>>;
   saveJobFilterPreset(input: JobFilterPresetInput): Promise<Result<JobFilterPreset>>;
+  deleteJobFilterPreset(id: string): Promise<Result<{ deleted: boolean }>>;
   saveJobAlertRule(input: JobAlertRuleInput): Promise<Result<JobAlertRule>>;
+  deleteJobAlertRule(id: string): Promise<Result<{ deleted: boolean }>>;
   validateJobSource(id: string): Promise<Result<JobSyncRun>>;
   saveCareerSearchPlan(input: CareerSearchPlanInput): Promise<Result<CareerSearchPlan>>;
   runCareerSearchPlan(id: string): Promise<Result<CareerAgentRun>>;
@@ -127,13 +135,17 @@ export interface InterviewOSApi {
   getJobSyncStatus(): Promise<Result<JobSyncBridgeStatus>>;
   promoteSyncedJob(id: string): Promise<Result<JobDescription>>;
   updateSyncedJobStatus(id: string, status: SyncedJobStatus): Promise<Result<SyncedJob>>;
+  bulkUpdateSyncedJobStatus(ids: string[], status: SyncedJobStatus): Promise<Result<{ updated: number }>>;
+  bulkRestoreSyncedJobs(ids: string[]): Promise<Result<{ restored: number }>>;
   deleteSyncedJobPermanently(id: string): Promise<Result<{ deleted: boolean }>>;
+  bulkDeleteSyncedJobsPermanently(ids: string[]): Promise<Result<{ deleted: number }>>;
   startTraining(input: TrainingStartInput): Promise<Result<TrainingSession>>;
   submitTraining(input: TrainingAnswerInput): Promise<Result<TrainingSession>>;
   finalizeTraining(input: TrainingFinalizeInput): Promise<Result<TrainingSession>>;
   coachTraining(input: TrainingCoachInput): Promise<Result<TrainingCoachResult>>;
   createBackup(): Promise<Result<BackupInfo>>;
   exportMarkdown(): Promise<Result<ExportInfo>>;
+  exportJobData(kind: 'csv' | 'json' | 'report'): Promise<Result<ExportInfo>>;
   saveProvider(input: ProviderInput): Promise<Result<ProviderConfig>>;
   testProvider(): Promise<Result<ConnectionResult>>;
   getMeta(): Promise<Result<AppMeta>>;

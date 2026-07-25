@@ -1,4 +1,5 @@
 import type { CareerSearchPlan, CareerSearchPlanInput, SyncedJob, WorkspaceState } from './domain';
+import { extractJobSkills } from './job-intelligence';
 
 const knownCities = ['北京', '上海', '广州', '深圳', '杭州', '南京', '成都', '武汉', '苏州', '西安', '重庆', '天津', '长沙', '厦门', '青岛'];
 const knownPlatforms = ['BOSS直聘', '猎聘', '智联招聘', '前程无忧', '拉勾', '牛客', '应届生', '国聘网', '公司官网'];
@@ -14,6 +15,10 @@ function unique(values: string[]): string[] {
 
 function includesLoose(text: string, value: string): boolean {
   return text.toLocaleLowerCase().includes(value.toLocaleLowerCase());
+}
+
+function sameSkill(left: string, right: string): boolean {
+  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
 }
 
 export function parseCareerGoal(goal: string, state: WorkspaceState): CareerSearchPlanInput {
@@ -76,14 +81,19 @@ export interface SkillGraphNode {
 
 export function buildSkillGraph(state: WorkspaceState, targetJobId?: string): SkillGraphNode[] {
   const target = targetJobId ? state.syncedJobs.find((item) => item.id === targetJobId) : undefined;
-  const demandJobs = target ? [target] : state.syncedJobs.filter((item) => item.status !== 'ignored');
-  const demandedSkills = unique(demandJobs.flatMap((item) => item.skills));
+  const demandJobs = target ? [target] : state.syncedJobs.filter((item) => item.status !== 'ignored' && item.status !== 'trashed' && item.lifecycleStatus !== 'closed');
+  const demandedSkills = unique(target
+    ? [...target.skills, ...extractJobSkills(`${target.title} ${target.description} ${target.skills.join(' ')}`)]
+    : demandJobs.flatMap((item) => item.skills));
   const profileSkills = state.profile.skills.map((item) => item.name);
   const projectSkills = unique(state.projects.flatMap((item) => item.techStack));
-  return unique([...profileSkills, ...projectSkills, ...demandedSkills]).map((name) => {
-    const inProfile = profileSkills.some((item) => item.toLocaleLowerCase() === name.toLocaleLowerCase());
-    const evidenceProjects = state.projects.filter((item) => item.techStack.some((skill) => skill.toLocaleLowerCase() === name.toLocaleLowerCase())).map((item) => item.name);
-    const demandCount = state.syncedJobs.filter((item) => item.skills.some((skill) => skill.toLocaleLowerCase() === name.toLocaleLowerCase())).length;
+  const graphSkills = target ? demandedSkills : unique([...profileSkills, ...projectSkills, ...demandedSkills]);
+  return graphSkills.map((name) => {
+    const inProfile = profileSkills.some((item) => sameSkill(item, name));
+    const evidenceProjects = state.projects.filter((item) => item.techStack.some((skill) => sameSkill(skill, name))).map((item) => item.name);
+    const demandCount = target
+      ? (demandedSkills.some((skill) => sameSkill(skill, name)) ? 1 : 0)
+      : demandJobs.filter((item) => item.skills.some((skill) => sameSkill(skill, name))).length;
     const category: SkillGraphNode['category'] = inProfile && evidenceProjects.length ? 'verified' : inProfile || evidenceProjects.length ? 'related' : 'gap';
     return {
       name,

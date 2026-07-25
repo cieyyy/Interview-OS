@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
-import { ExternalLink, Link2, Network, RefreshCw } from '@lucide/vue';
+import { computed, reactive, ref, watch } from 'vue';
+import { ChevronLeft, ChevronRight, ExternalLink, Link2, Network, RefreshCw } from '@lucide/vue';
 import type { DocumentImportResult, KnowledgeInput, KnowledgeItem, KnowledgeStatus, KnowledgeType, KnowledgeVisibility } from '../../shared/domain';
 import { buildKnowledgeGraph, knowledgeBacklinks, parseWikiLinks } from '../../shared/knowledge-graph';
 import DocumentImportButton from '../components/DocumentImportButton.vue';
@@ -10,6 +10,8 @@ import { useWorkspace } from '../composables/useWorkspace';
 
 const { store, saveKnowledge, deleteKnowledge, runObsidianSync, openObsidianNote, copyObsidianWikiLink } = useWorkspace();
 const search = ref('');
+const currentPage = ref(1);
+const pageSize = 7;
 const viewMode = ref<'editor' | 'graph'>('editor');
 const selectedId = ref<string>();
 const form = reactive<KnowledgeInput>({
@@ -21,7 +23,7 @@ const skillsText = ref('');
 const types: Array<{ value: KnowledgeType; label: string }> = [
   { value: 'technical', label: '技术知识' }, { value: 'incident', label: '故障案例' },
   { value: 'question', label: '面试问题' }, { value: 'answer', label: '面试回答' },
-  { value: 'project', label: '项目知识' }, { value: 'jd', label: 'JD 分析' },
+  { value: 'project', label: '项目知识' }, { value: 'jd', label: '岗位分析' },
   { value: 'learning-plan', label: '学习计划' }, { value: 'company-research', label: '公司研究' },
   { value: 'retrospective', label: '求职复盘' }, { value: 'note', label: '普通笔记' }
 ];
@@ -35,6 +37,16 @@ const visibilities: Array<{ value: KnowledgeVisibility; label: string }> = [
 const filtered = computed(() => {
   const q = search.value.trim().toLocaleLowerCase();
   return (store.workspace?.knowledge ?? []).filter((item) => !q || [item.title, item.contentMarkdown, ...item.tags].join(' ').toLocaleLowerCase().includes(q));
+});
+const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize)));
+const pagedFiltered = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  return filtered.value.slice(start, start + pageSize);
+});
+
+watch(search, () => { currentPage.value = 1; });
+watch(pageCount, (count) => {
+  if (currentPage.value > count) currentPage.value = count;
 });
 const syncEntry = computed(() => store.workspace?.obsidianSyncIndex.find((item) => item.entityId === selectedId.value));
 const obsidianEnabled = computed(() => Boolean(store.workspace?.settings.obsidian.enabled));
@@ -61,6 +73,8 @@ function openGraph(): void {
 }
 
 function select(item: KnowledgeItem): void {
+  const filteredIndex = filtered.value.findIndex((entry) => entry.id === item.id);
+  if (filteredIndex >= 0) currentPage.value = Math.floor(filteredIndex / pageSize) + 1;
   selectedId.value = item.id;
   Object.assign(form, item, {
     relatedIds: [...(item.relatedIds ?? [])], jobIds: [...(item.jobIds ?? [])], projectIds: [...(item.projectIds ?? [])],
@@ -74,6 +88,10 @@ function select(item: KnowledgeItem): void {
 function selectById(id: string): void {
   const item = store.workspace?.knowledge.find((entry) => entry.id === id);
   if (item) select(item);
+}
+
+function changePage(page: number): void {
+  currentPage.value = Math.min(pageCount.value, Math.max(1, page));
 }
 
 function clear(): void {
@@ -128,15 +146,28 @@ async function remove(): Promise<void> {
 
     <div class="knowledge-view-switch segmented"><button :class="{ active: viewMode === 'editor' }" data-testid="knowledge-editor-tab" type="button" @click="viewMode = 'editor'">编辑与属性</button><button :class="{ active: viewMode === 'graph' }" data-testid="knowledge-graph-tab" type="button" @click="openGraph"><Network :size="15" />知识图谱</button></div>
 
+    <div class="knowledge-guide">
+      <strong>知识空间使用方式</strong>
+      <span>1. 新建或上传知识</span>
+      <span>2. 在正文输入 [[知识标题]] 建立双向链接</span>
+      <span>3. 关联岗位、项目和技能</span>
+      <span>4. 切换知识图谱查看关系，点击知识节点可回到编辑</span>
+    </div>
+
     <div v-if="viewMode === 'editor'" class="workspace-layout knowledge-space-layout">
       <aside class="collection-panel">
         <input v-model="search" class="input search-input" placeholder="搜索标题、内容或标签" data-testid="knowledge-search" />
-        <div class="collection-list">
-          <button v-for="item in filtered" :key="item.id" type="button" class="collection-item" :class="{ selected: item.id === selectedId }" @click="select(item)">
+        <div class="collection-list knowledge-collection-list">
+          <button v-for="item in pagedFiltered" :key="item.id" type="button" class="collection-item" :class="{ selected: item.id === selectedId }" @click="select(item)">
             <span class="type-dot"></span><span><strong>{{ item.title }}</strong><small>{{ types.find((type) => type.value === item.type)?.label }} · {{ item.tags.join(' / ') || '无标签' }}</small><em>{{ visibilities.find((value) => value.value === item.visibility)?.label ?? '私有' }}</em></span>
           </button>
           <p v-if="!filtered.length" class="list-empty">没有匹配的知识内容</p>
         </div>
+        <nav v-if="filtered.length" class="collection-pagination" aria-label="知识列表分页" data-testid="knowledge-pagination">
+          <button class="icon-button" type="button" title="上一页" aria-label="上一页" data-testid="knowledge-page-prev" :disabled="currentPage === 1" @click="changePage(currentPage - 1)"><ChevronLeft :size="16" aria-hidden="true" /></button>
+          <span><strong>{{ currentPage }}</strong> / {{ pageCount }}<small>共 {{ filtered.length }} 条</small></span>
+          <button class="icon-button" type="button" title="下一页" aria-label="下一页" data-testid="knowledge-page-next" :disabled="currentPage === pageCount" @click="changePage(currentPage + 1)"><ChevronRight :size="16" aria-hidden="true" /></button>
+        </nav>
       </aside>
 
       <form class="editor-panel" data-testid="knowledge-form" @submit.prevent="submit(false)">
@@ -162,11 +193,14 @@ async function remove(): Promise<void> {
     <div v-else class="panel knowledge-graph-board">
       <header><div><span class="eyebrow">RELATION GRAPH</span><h2>知识关系图</h2><p>选择一个节点查看它的直接关系；浏览图谱不会创建或修改知识。</p></div><div class="graph-summary"><strong>{{ graph.nodes.length }} 节点 · {{ graph.edges.length }} 关系</strong><small>当前显示 {{ visibleGraphEdges.length }} 条</small><button v-if="selectedGraphNodeId" type="button" @click="selectedGraphNodeId = ''">显示全部概览</button></div></header>
       <div class="knowledge-graph-columns">
-        <section><h3>知识</h3><button v-for="node in graphSections.knowledge" :key="node.id" type="button" :class="{ selected: node.id === selectedGraphNodeId }" @click="selectedGraphNodeId = node.id">{{ node.label }}</button></section>
+        <section><h3>知识</h3><button v-for="node in graphSections.knowledge" :key="node.id" type="button" :class="{ selected: node.id === selectedGraphNodeId }" @click="selectedGraphNodeId = node.id" @dblclick="selectById(node.id)">{{ node.label }}</button></section>
         <section><h3>项目 / 岗位</h3><button v-for="node in graphSections.business" :key="node.id" type="button" :class="{ selected: node.id === selectedGraphNodeId }" @click="selectedGraphNodeId = node.id">{{ node.label }}</button></section>
         <section><h3>技能</h3><button v-for="node in graphSections.skills" :key="node.id" type="button" :class="{ selected: node.id === selectedGraphNodeId }" @click="selectedGraphNodeId = node.id">{{ node.label }}</button></section>
       </div>
-      <div class="knowledge-edge-list"><span v-for="edge in visibleGraphEdges" :key="`${edge.source}-${edge.target}-${edge.relation}`"><b>{{ graph.nodes.find((node) => node.id === edge.source)?.label }}</b><i>{{ relationLabels[edge.relation] }}</i><b>{{ graph.nodes.find((node) => node.id === edge.target)?.label }}</b></span><p v-if="!visibleGraphEdges.length">当前节点暂无直接关系。</p></div>
+      <div class="knowledge-edge-list">
+        <button v-if="selectedGraphNodeId && graph.nodes.find((node) => node.id === selectedGraphNodeId)?.kind === 'knowledge'" class="button secondary compact" type="button" @click="selectById(selectedGraphNodeId)">编辑当前知识</button>
+        <span v-for="edge in visibleGraphEdges" :key="`${edge.source}-${edge.target}-${edge.relation}`"><b>{{ graph.nodes.find((node) => node.id === edge.source)?.label }}</b><i>{{ relationLabels[edge.relation] }}</i><b>{{ graph.nodes.find((node) => node.id === edge.target)?.label }}</b></span><p v-if="!visibleGraphEdges.length">当前节点暂无直接关系。</p>
+      </div>
     </div>
   </section>
 </template>

@@ -5,18 +5,30 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Interview OS Job Sync</title>
   <style>
-    body{width:340px;margin:0;padding:16px;color:#10243e;background:#f5f9ff;font:13px/1.5 "Microsoft YaHei UI",sans-serif}h1{margin:0 0 4px;font-size:17px}p{margin:0 0 14px;color:#657c94}label{display:block;margin:10px 0 5px;font-weight:600}input{box-sizing:border-box;width:100%;padding:9px;border:1px solid #b9cce0;background:#fff}button{margin-top:10px;padding:9px 12px;border:1px solid #8db7df;color:#075ead;background:#e7f3ff;font-weight:600;cursor:pointer}button.primary{width:100%;color:#fff;border-color:#087cf0;background:#087cf0}button.secondary{width:100%;background:#eef7ff}.row{display:flex;gap:8px}.row button{flex:1}.status{min-height:20px;margin-top:10px;color:#28618f;white-space:pre-wrap}.note{margin-top:12px;padding-top:10px;border-top:1px solid #dbe7f2;font-size:12px}
+    body{width:340px;margin:0;padding:16px;color:#10243e;background:#f5f9ff;font:13px/1.5 "Microsoft YaHei UI",sans-serif}h1{margin:0 0 4px;font-size:17px}p{margin:0 0 14px;color:#657c94}label{display:block;margin:10px 0 5px;font-weight:600}input{box-sizing:border-box;width:100%;padding:9px;border:1px solid #b9cce0;background:#fff}button{margin-top:10px;padding:9px 12px;border:1px solid #8db7df;color:#075ead;background:#e7f3ff;font-weight:600;cursor:pointer}button.primary{width:100%;color:#fff;border-color:#087cf0;background:#087cf0}button.secondary{width:100%;background:#eef7ff}.row{display:flex;gap:8px}.row button{flex:1}.capture-mode{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:12px 0 4px;padding:4px;border:1px solid #b9cce0;background:#eaf4ff}.capture-mode label{display:flex;align-items:center;justify-content:center;gap:6px;margin:0;padding:8px;background:#fff;cursor:pointer}.capture-mode input{width:14px;height:14px;padding:0}.mode-help{min-height:36px;margin:4px 0 8px;font-size:12px}.status{min-height:20px;margin-top:10px;color:#28618f;white-space:pre-wrap}.failure-panel{margin-top:10px;border:1px solid #efb4aa;background:#fff}.failure-header{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #f2d5cf;color:#9b2c1f}.failure-header button{margin:0;padding:5px 8px;border-color:#df9d92;color:#9b2c1f;background:#fff}.failure-list{max-height:210px;margin:0;padding:0;overflow:auto;list-style:none}.failure-item{padding:9px 10px;border-bottom:1px solid #edf1f5}.failure-item:last-child{border-bottom:0}.failure-title{display:block;color:#123b62;font-weight:600;text-decoration:none}.failure-meta{margin-top:2px;color:#657c94;font-size:12px}.failure-reason{margin-top:4px;color:#a13729;font-size:12px;word-break:break-word}.note{margin-top:12px;padding-top:10px;border-top:1px solid #dbe7f2;font-size:12px}
   </style>
 </head>
 <body>
   <h1>Interview OS Job Sync</h1>
-  <p>读取招聘列表或详情页岗位，并同步到本机 Interview OS。</p>
+  <p>只从岗位详情页写入职位池；列表页会在后台逐个打开详情页补全后同步。</p>
+  <div class="capture-mode" role="radiogroup" aria-label="岗位捕获模式">
+    <label><input type="radio" name="captureMode" value="manual" />手动捕获</label>
+    <label><input type="radio" name="captureMode" value="auto" />自动捕获</label>
+  </div>
+  <p id="mode-help" class="mode-help"></p>
   <label for="token">同步令牌</label>
   <input id="token" type="password" autocomplete="off" placeholder="从 Interview OS 岗位同步中心复制" />
   <div class="row"><button id="save" type="button">保存令牌</button><button id="check" type="button">检查连接</button></div>
-  <button id="sync" class="primary" type="button">同步当前页面</button>
-  <button id="sync-details" class="secondary" type="button">列表岗位 + 后台详情补全</button>
+  <button id="sync" class="primary" type="button">智能同步当前页面</button>
+  <button id="sync-details" class="secondary" type="button">批量打开详情页同步</button>
   <div id="status" class="status"></div>
+  <section id="failure-panel" class="failure-panel" aria-labelledby="failure-title" hidden>
+    <div class="failure-header">
+      <strong id="failure-title">失败岗位</strong>
+      <button id="copy-failures" type="button">复制清单</button>
+    </div>
+    <ol id="failure-list" class="failure-list"></ol>
+  </section>
   <p class="note">可使用你当前浏览器登录态打开详情页；不会读取网站密码或导出 Cookie，不会绕过验证码，不会发送消息或自动投递。</p>
   <script src="popup.js"></script>
 </body>

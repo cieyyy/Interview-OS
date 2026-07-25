@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { BellRing, CheckCircle2, Clipboard, Database, FileBarChart, Filter, RadioTower, Rows3, ShieldCheck, Table2 } from '@lucide/vue';
+import { BellRing, CheckCircle2, Clipboard, Database, Download, FileBarChart, Filter, RadioTower, Rows3, ShieldCheck, Table2 } from '@lucide/vue';
 import type { JobAlertChannel, JobAlertRuleInput, SyncedJob } from '../../shared/domain';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
 
 type DataTab = 'quality' | 'report' | 'push';
-const { store, saveJobAlertRule, copyText } = useWorkspace();
+const { store, saveJobAlertRule, copyText, exportJobData } = useWorkspace();
 const activeTab = ref<DataTab>('quality');
 const copied = ref('');
+const exportedPath = ref('');
 const alertDraft = reactive<JobAlertRuleInput>({ name: '高匹配岗位提醒', presetId: '', channel: 'in-app', enabled: true, threshold: 1, target: '' });
 
 const jobs = computed(() => store.workspace?.syncedJobs ?? []);
@@ -24,7 +25,7 @@ function filled(item: SyncedJob, field: keyof SyncedJob): boolean {
 
 const fieldQuality = computed(() => [
   { label: '公司名称', field: 'company' as const }, { label: '工作地点', field: 'location' as const },
-  { label: '薪资区间', field: 'salaryRange' as const }, { label: '完整 JD', field: 'description' as const },
+  { label: '薪资区间', field: 'salaryRange' as const }, { label: '岗位描述', field: 'description' as const },
   { label: '学历要求', field: 'education' as const }, { label: '经验要求', field: 'experience' as const },
   { label: '技能标签', field: 'skills' as const }, { label: '发布时间', field: 'postedAt' as const }
 ].map((item) => ({ ...item, count: jobs.value.filter((job) => filled(job, item.field)).length, percent: jobs.value.length ? Math.round(jobs.value.filter((job) => filled(job, item.field)).length / jobs.value.length * 100) : 0 })));
@@ -73,6 +74,11 @@ async function copyExport(kind: 'csv' | 'json' | 'report'): Promise<void> {
   window.setTimeout(() => { copied.value = ''; }, 1800);
 }
 
+async function exportFile(kind: 'csv' | 'json' | 'report'): Promise<void> {
+  const result = await exportJobData(kind);
+  exportedPath.value = result?.path ?? '';
+}
+
 async function saveAlert(): Promise<void> {
   await saveJobAlertRule(alertDraft);
 }
@@ -97,10 +103,11 @@ async function saveAlert(): Promise<void> {
 
     <template v-else-if="activeTab === 'report'">
       <div class="export-layout">
-        <section class="export-command"><span><Table2 :size="20" /></span><div><h3>标准化 CSV</h3><p>岗位、公司、城市、薪资、学历、经验、技能、来源、时间和评分。</p></div><button class="button secondary" type="button" data-testid="data-copy-csv" @click="copyExport('csv')"><Clipboard :size="15" />{{ copied === 'csv' ? '已复制' : '复制 CSV' }}</button></section>
-        <section class="export-command"><span><Database :size="20" /></span><div><h3>完整 JSON</h3><p>保留统一职位契约、匹配分项、风险标记和生命周期字段。</p></div><button class="button secondary" type="button" data-testid="data-copy-json" @click="copyExport('json')"><Clipboard :size="15" />{{ copied === 'json' ? '已复制' : '复制 JSON' }}</button></section>
-        <section class="export-command"><span><FileBarChart :size="20" /></span><div><h3>职位分布报告</h3><p>汇总数据质量、来源健康度、热门技能和异常数量。</p></div><button class="button secondary" type="button" data-testid="data-copy-report" @click="copyExport('report')"><Clipboard :size="15" />{{ copied === 'report' ? '已复制' : '复制报告' }}</button></section>
+        <section class="export-command"><span><Table2 :size="20" /></span><div><h3>标准化 CSV</h3><p>岗位、公司、工作地址、薪资、学历、经验、技能、来源、时间和评分。</p></div><button class="button secondary" type="button" data-testid="data-copy-csv" @click="copyExport('csv')"><Clipboard :size="15" />{{ copied === 'csv' ? '已复制' : '复制 CSV' }}</button><button class="button primary" type="button" data-testid="data-export-csv" @click="exportFile('csv')"><Download :size="15" />导出文件</button></section>
+        <section class="export-command"><span><Database :size="20" /></span><div><h3>完整 JSON</h3><p>保留统一职位契约、匹配分项、风险标记和生命周期字段。</p></div><button class="button secondary" type="button" data-testid="data-copy-json" @click="copyExport('json')"><Clipboard :size="15" />{{ copied === 'json' ? '已复制' : '复制 JSON' }}</button><button class="button primary" type="button" data-testid="data-export-json" @click="exportFile('json')"><Download :size="15" />导出文件</button></section>
+        <section class="export-command"><span><FileBarChart :size="20" /></span><div><h3>职位分布报告</h3><p>汇总数据质量、来源健康度、热门技能和异常数量。</p></div><button class="button secondary" type="button" data-testid="data-copy-report" @click="copyExport('report')"><Clipboard :size="15" />{{ copied === 'report' ? '已复制' : '复制报告' }}</button><button class="button primary" type="button" data-testid="data-export-report" @click="exportFile('report')"><Download :size="15" />导出文件</button></section>
       </div>
+      <p v-if="exportedPath" class="path-result">已导出：{{ exportedPath }}</p>
       <section class="report-preview"><header><span class="eyebrow">REPORT PREVIEW</span><h3>本地报告预览</h3></header><pre>{{ buildReport() }}</pre></section>
     </template>
 

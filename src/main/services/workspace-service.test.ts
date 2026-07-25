@@ -173,8 +173,37 @@ describe('WorkspaceService', () => {
     const id = service.getState().syncedJobs[0].id;
     expect((await service.updateSyncedJobStatus(id, 'trashed')).status).toBe('trashed');
     expect((await service.updateSyncedJobStatus(id, 'new')).status).toBe('new');
+    expect((await service.bulkUpdateSyncedJobStatus([id], 'trashed')).updated).toBe(1);
+    expect(service.getState().syncedJobs[0].status).toBe('trashed');
+    expect((await service.bulkUpdateSyncedJobStatus([id], 'trashed')).updated).toBe(0);
     expect((await service.deleteSyncedJobPermanently(id)).deleted).toBe(true);
     expect(service.getState().syncedJobs.some((job) => job.id === id)).toBe(false);
+  });
+
+  it('restores and permanently deletes multiple trashed jobs in one operation', async () => {
+    const token = service.getState().settings.jobSyncToken;
+    await service.ingestSyncedJobs({
+      token,
+      sourceSite: 'boss',
+      sourceName: 'BOSS 直聘',
+      pageUrl: 'https://www.zhipin.com/web/geek/job?query=Linux',
+      jobs: [
+        { sourceUrl: 'https://www.zhipin.com/job_detail/bulk-1.html', title: 'Linux 运维工程师', company: '示例一', description: '负责 Linux 和 Docker 运维。' },
+        { sourceUrl: 'https://www.zhipin.com/job_detail/bulk-2.html', title: '云平台工程师', company: '示例二', description: '负责 Kubernetes 平台运维。' },
+        { sourceUrl: 'https://www.zhipin.com/job_detail/bulk-3.html', title: '数据库工程师', company: '示例三', description: '负责数据库日常运维。' }
+      ]
+    });
+
+    const [first, second, active] = service.getState().syncedJobs;
+    await service.promoteSyncedJob(first.id);
+    expect((await service.bulkUpdateSyncedJobStatus([first.id, second.id], 'trashed')).updated).toBe(2);
+    expect((await service.bulkRestoreSyncedJobs([first.id, second.id])).restored).toBe(2);
+    expect(service.getState().syncedJobs.find((job) => job.id === first.id)?.status).toBe('saved');
+    expect(service.getState().syncedJobs.find((job) => job.id === second.id)?.status).toBe('new');
+
+    await service.bulkUpdateSyncedJobStatus([first.id, second.id], 'trashed');
+    expect((await service.bulkDeleteSyncedJobsPermanently([first.id, second.id, active.id])).deleted).toBe(2);
+    expect(service.getState().syncedJobs.map((job) => job.id)).toEqual([active.id]);
   });
 
   it('rejects a browser sync batch with the wrong local token', async () => {

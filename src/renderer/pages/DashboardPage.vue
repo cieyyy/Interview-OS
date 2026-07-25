@@ -14,7 +14,7 @@ const today = new Date().toISOString().slice(0, 10);
 const todayTraining = computed(() => workspace.value?.trainingSessions.filter((item) => item.updatedAt.startsWith(today)) ?? []);
 const pendingAnswers = computed(() => workspace.value?.knowledge.filter((item) => item.type === 'answer' && item.status === 'review') ?? []);
 const skillGaps = computed(() => workspace.value ? buildSkillGraph(workspace.value).filter((item) => item.category === 'gap').slice(0, 5) : []);
-const targetJobs = computed(() => (workspace.value?.syncedJobs ?? []).filter((item) => item.status !== 'ignored' && item.lifecycleStatus !== 'closed').sort((a, b) => b.matchScore - a.matchScore).slice(0, 4));
+const targetJobs = computed(() => (workspace.value?.syncedJobs ?? []).filter((item) => item.status === 'saved' && item.lifecycleStatus !== 'closed').sort((a, b) => b.matchScore - a.matchScore).slice(0, 4));
 const todayTasks = computed(() => {
   if (!workspace.value) return [];
   const applicationTasks = workspace.value.applications
@@ -28,7 +28,7 @@ const todayTasks = computed(() => {
 
 const loop = [
   { label: '发现岗位', to: '/job-sync' },
-  { label: '分析 JD', to: '/jobs' },
+  { label: '分析岗位', to: '/jobs' },
   { label: '匹配能力', to: '/skill-graph' },
   { label: '修改简历', to: '/resumes' },
   { label: '包装项目', to: '/projects' },
@@ -88,7 +88,7 @@ const loop = [
         <button type="button" @click="router.push('/job-insights')"><ChartNoAxesCombined :size="17" /><span><strong>岗位洞察</strong><small>趋势和分布</small></span></button>
         <button type="button" @click="router.push('/companies')"><Building2 :size="17" /><span><strong>公司关注</strong><small>官网与招聘时间线</small></span></button>
         <button type="button" @click="router.push('/resumes')"><FileUser :size="17" /><span><strong>简历工坊</strong><small>定向版本</small></span></button>
-        <button type="button" @click="router.push('/jobs')"><FileSearch :size="17" /><span><strong>JD 分析</strong><small>要求与证据</small></span></button>
+        <button type="button" @click="router.push('/jobs')"><FileSearch :size="17" /><span><strong>岗位分析</strong><small>要求与证据</small></span></button>
       </div>
 
       <span class="sr-only" data-testid="stat-knowledge">{{ workspace.knowledge.length }}</span><span class="sr-only" data-testid="stat-projects">{{ workspace.projects.length }}</span><span class="sr-only" data-testid="stat-jobs">{{ workspace.jobs.length }}</span><span class="sr-only" data-testid="stat-resumes">{{ workspace.resumeVariants.length }}</span><span class="sr-only" data-testid="stat-synced-jobs">{{ workspace.syncedJobs.length }}</span>

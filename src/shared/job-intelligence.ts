@@ -19,25 +19,27 @@ export interface JobIntelligenceResult {
 }
 
 const industryRules: Array<{ industry: JobIndustry; keywords: string[] }> = [
-  { industry: 'technology', keywords: ['开发', '软件', '算法', '前端', '后端', '测试', 'java', 'python', 'golang', 'ai', '数据工程', '云原生'] },
-  { industry: 'operations', keywords: ['运维', 'sre', 'devops', '技术支持', '实施', '网络工程', '数据库管理员'] },
-  { industry: 'product', keywords: ['产品经理', '产品运营', '用户研究', '需求分析'] },
-  { industry: 'design', keywords: ['设计', '视觉', 'ui', 'ux', '交互', '剪辑', '动画', 'aigc'] },
-  { industry: 'sales', keywords: ['销售', '客户经理', '商务拓展', '渠道', 'bd'] },
+  { industry: 'technology', keywords: ['开发', '软件', '算法', '前端', '后端', '测试', 'Java', 'Python', 'Golang', 'AI', '数据工程', '云原生', '大模型'] },
+  { industry: 'operations', keywords: ['运维', 'SRE', 'DevOps', '技术支持', '实施', '交付', '网络工程', '数据库管理员', 'Linux', 'Docker'] },
+  { industry: 'product', keywords: ['产品经理', '产品运营', '用户研究', '需求分析', 'SaaS', 'B端'] },
+  { industry: 'design', keywords: ['设计', '视觉', 'UI', 'UX', '交互', '剪辑', '动画', 'AIGC'] },
+  { industry: 'sales', keywords: ['销售', '客户经理', '商务拓展', '渠道', 'BD', '大客户'] },
   { industry: 'marketing', keywords: ['市场', '品牌', '新媒体', '内容运营', '广告', '增长'] },
   { industry: 'finance', keywords: ['财务', '会计', '审计', '投研', '证券', '风控', '银行'] },
-  { industry: 'human-resources', keywords: ['人力资源', '招聘', 'hr', '薪酬', '组织发展'] },
+  { industry: 'human-resources', keywords: ['人力资源', '招聘', 'HR', '薪酬', '组织发展'] },
   { industry: 'legal', keywords: ['法务', '律师', '合规', '知识产权'] },
   { industry: 'healthcare', keywords: ['医疗', '医药', '临床', '护理', '生物', '药品'] },
-  { industry: 'education', keywords: ['教师', '教研', '教育', '课程顾问', '培训讲师'] },
+  { industry: 'education', keywords: ['教师', '教研', '教育', '课程顾问', '培训讲师', '幼儿园', '幼师', '保育'] },
   { industry: 'manufacturing', keywords: ['制造', '机械', '电气', '工艺', '供应链', '物流', '质量工程'] }
 ];
 
 const skillDictionary = [
-  'Kubernetes', 'Docker', 'Linux', 'Nginx', 'Redis', 'MySQL', 'PostgreSQL', 'RDS', 'ACK', 'AWS', 'Azure',
-  'Java', 'Python', 'JavaScript', 'TypeScript', 'Go', 'C++', 'React', 'Vue', 'Node.js', 'Spring Boot', 'SQL',
-  'Figma', 'Photoshop', 'Illustrator', 'After Effects', 'Premiere', 'AIGC', 'Excel', 'Power BI', 'Tableau',
-  'SEO', 'SEM', 'CRM', 'ERP', 'SAP', 'CAD', 'PLC', 'Git', 'Jenkins', 'Prometheus', 'Grafana'
+  'Kubernetes', 'K8s', 'Docker', 'Linux', 'Nginx', 'Redis', 'MySQL', 'PostgreSQL', 'RDS', 'ACK', 'AWS', 'Azure',
+  'Java', 'Python', 'JavaScript', 'TypeScript', 'Go', 'Golang', 'C++', 'React', 'Vue', 'Node.js', 'Spring Boot', 'SQL',
+  'CI/CD', 'Jenkins', 'Git', 'Prometheus', 'Grafana', 'Shell', 'TCP/IP', 'HTTP', 'Traefik', 'Consul',
+  'Figma', 'Photoshop', 'Illustrator', 'After Effects', 'Premiere', 'AIGC',
+  'Excel', 'Power BI', 'Tableau', 'SEO', 'SEM', 'CRM', 'ERP', 'SAP', 'CAD', 'PLC',
+  '课程设计', '教研', '幼儿教育', '班级管理', '家校沟通', '活动策划'
 ];
 
 const riskRules: Array<{ pattern: RegExp; label: string }> = [
@@ -62,7 +64,7 @@ function normalized(value: string): string {
 }
 
 function unique(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))];
+  return [...new Set(values.map((item) => item.trim()).filter(Boolean))];
 }
 
 export function detectJobIndustry(text: string): JobIndustry {
@@ -77,7 +79,7 @@ export function detectJobIndustry(text: string): JobIndustry {
 
 export function extractJobSkills(text: string): string[] {
   const value = normalized(text);
-  return skillDictionary.filter((skill) => value.includes(normalized(skill))).slice(0, 20);
+  return unique(skillDictionary.filter((skill) => value.includes(normalized(skill)))).slice(0, 20);
 }
 
 export function parseSalaryRange(value: string): { min?: number; max?: number } {
@@ -108,6 +110,7 @@ function detectEducation(text: string): string {
   if (/硕士|研究生/u.test(text)) return '硕士';
   if (/本科/u.test(text)) return '本科';
   if (/大专|专科/u.test(text)) return '大专';
+  if (/中专|高中/u.test(text)) return '中专/高中';
   if (/学历不限|不限学历/u.test(text)) return '不限';
   return '';
 }
@@ -134,10 +137,10 @@ function calculateTrust(input: SyncedJobInput, text: string): { score: number; f
   let score = 100;
   const flags: string[] = [];
   if (!input.company?.trim()) { score -= 20; flags.push('公司信息缺失'); }
-  if (!input.description?.trim() || input.description.trim().length < 60) { score -= 15; flags.push('JD 信息不完整'); }
-  if (!input.location?.trim()) score -= 3;
+  if (!input.description?.trim() || input.description.trim().length < 60) { score -= 15; flags.push('岗位描述不完整'); }
+  if (!input.location?.trim()) { score -= 3; flags.push('工作地址缺失'); }
   if (!input.salaryRange?.trim()) score -= 4;
-  if (!input.postedAt) { score -= 5; flags.push('发布时间未识别'); }
+  if (!input.postedAt) flags.push('发布时间未识别');
   for (const rule of riskRules) {
     if (rule.pattern.test(text)) { score -= 24; flags.push(rule.label); }
   }
@@ -152,7 +155,7 @@ function calculateTrust(input: SyncedJobInput, text: string): { score: number; f
 
 function educationScore(profileEducation: string, requirement: string): number {
   if (!requirement || requirement === '不限') return 80;
-  const ranks = ['不限', '大专', '本科', '硕士', '博士'];
+  const ranks = ['不限', '中专/高中', '大专', '本科', '硕士', '博士'];
   const profileRank = ranks.findIndex((item) => profileEducation.includes(item));
   const requiredRank = ranks.indexOf(requirement);
   if (profileRank < 0) return 50;
@@ -176,10 +179,7 @@ function calculateProfileMatch(
 ): { score: number; dimensions: JobMatchDimensions; reasons: string[] } {
   const haystack = normalized(`${title} ${text}`);
   const roleCandidates = unique([profile.currentRole, ...profile.targetRoles]);
-  const targetHits = roleCandidates.filter((role) => {
-    const tokens = normalized(role).split(/[\s/·_-]+/u).filter((item) => item.length >= 2);
-    return tokens.some((token) => haystack.includes(token));
-  });
+  const targetHits = roleCandidates.filter((role) => normalized(role).split(/[\s/·_-]+/u).filter((item) => item.length >= 2).some((token) => haystack.includes(token)));
   const profileSkills = profile.skills.map((item) => item.name);
   const matchedSkills = profileSkills.filter((skill) => haystack.includes(normalized(skill)) || skills.some((item) => normalized(item) === normalized(skill)));
   const freshnessDays = context.postedAt ? Math.max(0, (Date.now() - new Date(context.postedAt).getTime()) / 86_400_000) : 60;
@@ -192,10 +192,7 @@ function calculateProfileMatch(
     salary: context.salaryKnown ? 70 : 45,
     freshness: freshnessDays <= 7 ? 100 : freshnessDays <= 30 ? 80 : freshnessDays <= 90 ? 55 : 25
   };
-  const score = Math.round(
-    dimensions.role * 0.25 + dimensions.skills * 0.3 + dimensions.experience * 0.12
-    + dimensions.education * 0.08 + dimensions.location * 0.08 + dimensions.salary * 0.07 + dimensions.freshness * 0.1
-  );
+  const score = Math.round(dimensions.role * 0.25 + dimensions.skills * 0.3 + dimensions.experience * 0.12 + dimensions.education * 0.08 + dimensions.location * 0.08 + dimensions.salary * 0.07 + dimensions.freshness * 0.1);
   const reasons: string[] = [];
   if (targetHits.length) reasons.push(`目标方向命中：${targetHits.slice(0, 2).join('、')}`);
   if (matchedSkills.length) reasons.push(`已有技能命中：${matchedSkills.slice(0, 4).join('、')}`);
@@ -206,7 +203,7 @@ function calculateProfileMatch(
 }
 
 export function analyzeSyncedJob(input: SyncedJobInput, profile: CareerProfile): JobIntelligenceResult {
-  const text = `${input.title} ${input.company ?? ''} ${input.description ?? ''}`;
+  const text = `${input.title} ${input.company ?? ''} ${input.location ?? ''} ${input.salaryRange ?? ''} ${input.description ?? ''}`;
   const skills = extractJobSkills(text);
   const salary = parseSalaryRange(input.salaryRange ?? '');
   const education = detectEducation(text);
@@ -214,10 +211,13 @@ export function analyzeSyncedJob(input: SyncedJobInput, profile: CareerProfile):
   const trust = calculateTrust(input, text);
   const biasFlags = biasRules.filter((rule) => rule.pattern.test(text)).map((rule) => rule.label);
   const match = calculateProfileMatch(profile, input.title, input.description ?? '', skills, {
-    education, experience, salaryKnown: salary.min != null, locationKnown: Boolean(input.location?.trim()), postedAt: input.postedAt
+    education,
+    experience,
+    salaryKnown: salary.min != null,
+    locationKnown: Boolean(input.location?.trim()),
+    postedAt: input.postedAt
   });
   const qualitySignals = [input.title, input.company, input.location, input.salaryRange, input.description, input.postedAt];
-  const qualityScore = Math.round(qualitySignals.filter(Boolean).length / qualitySignals.length * 100);
   return {
     industry: detectJobIndustry(text),
     employmentType: detectEmploymentType(text),
@@ -233,7 +233,7 @@ export function analyzeSyncedJob(input: SyncedJobInput, profile: CareerProfile):
     trustScore: Math.max(0, trust.score - Math.min(24, biasFlags.length * 8)),
     riskFlags: trust.flags,
     biasFlags,
-    qualityScore
+    qualityScore: Math.round(qualitySignals.filter(Boolean).length / qualitySignals.length * 100)
   };
 }
 
@@ -270,18 +270,18 @@ export function buildGreetingDraft(
   resume?: GreetingResumeContext
 ): string {
   const jobText = normalized(`${job.title} ${job.description ?? ''}`);
-  const availableSkills = [...new Set([...profile.skills.map((item) => item.name), ...(resume?.skillNames ?? [])])];
+  const availableSkills = unique([...profile.skills.map((item) => item.name), ...(resume?.skillNames ?? [])]);
   const matchedSkills = availableSkills.filter((skill) => jobText.includes(normalized(skill)) || job.skills?.some((item) => normalized(item) === normalized(skill)));
   const direction = profile.currentRole || profile.targetRoles[0] || '相关岗位';
-  const evidence = matchedSkills.length ? `，具备 ${matchedSkills.slice(0, 3).join('、')} 的实践基础` : '';
+  const skillEvidence = matchedSkills.length ? `，具备 ${matchedSkills.slice(0, 3).join('、')} 的实践基础` : '';
   const company = job.company?.trim() ? `贵司 ${job.company.trim()} 的` : '';
   if (!resume) {
-    return `您好，我关注到${company}${job.title}岗位。我目前的职业方向是${direction}${evidence}，希望进一步了解岗位重点和团队情况。`;
+    return `您好，我关注到${company}${job.title}岗位。我目前的职业方向是${direction}${skillEvidence}，希望进一步了解岗位重点和团队情况。`;
   }
   const resumeEvidence = resume.highlights?.find(Boolean)
     || resume.projectNames?.slice(0, 2).join('、')
     || resume.summary?.trim()
     || resume.headline?.trim();
   const evidenceText = resumeEvidence ? `，其中重点呈现了${resumeEvidence.slice(0, 80)}` : '';
-  return `您好，我关注到${company}${job.title}岗位。我目前的职业方向是${direction}${evidence}。我已为该岗位准备定向简历《${resume.name}》${evidenceText}。如方便，希望进一步沟通岗位重点和团队情况。`;
+  return `您好，我关注到${company}${job.title}岗位。我目前的职业方向是${direction}${skillEvidence}${evidenceText}。如果方便，希望进一步沟通岗位职责、匹配点和团队情况。`;
 }

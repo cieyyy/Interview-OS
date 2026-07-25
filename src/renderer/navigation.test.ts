@@ -5,11 +5,11 @@ describe('primary navigation state', () => {
   it.each([
     ['/', {}, '/'],
     ['/coach', {}, '/coach'],
-    ['/career-agent', {}, '/coach'],
+    ['/career-agent', {}, '/career-agent'],
     ['/reports', {}, '/coach'],
-    ['/profile', {}, '/resumes'],
+    ['/profile', {}, '/profile'],
     ['/profile', { tab: 'projects' }, '/projects'],
-    ['/job-insights', {}, '/job-sync'],
+    ['/job-insights', {}, '/job-insights'],
     ['/calendar', {}, '/applications']
   ])('maps %s to its visible parent module', (path, query, expected) => {
     expect(resolvePrimaryNavigation(path, query)).toBe(expected);

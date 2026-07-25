@@ -86,7 +86,7 @@ async function copyMarkdown(): Promise<void> {
 
 <template>
   <section>
-    <PageHeader eyebrow="RESUME STUDIO" title="简历工坊" description="从真实职业档案和项目证据生成多个定向版本，针对每份 JD 调整重点而不编造经历。">
+    <PageHeader eyebrow="RESUME STUDIO" title="简历工坊" description="从真实职业档案和项目证据生成多个定向版本，针对每份岗位描述调整重点而不编造经历。">
       <button class="button primary" type="button" data-testid="resume-add" @click="newVariant"><Plus :size="16" />新建版本</button>
     </PageHeader>
 
@@ -105,7 +105,7 @@ async function copyMarkdown(): Promise<void> {
         <form class="panel resume-editor" data-testid="resume-form" @submit.prevent="submit">
           <div class="resume-editor-heading"><div><span class="eyebrow">TARGETED VERSION</span><h3>{{ form.id ? '编辑定向简历' : '创建定向简历' }}</h3></div><button class="button secondary" type="button" data-testid="resume-generate" @click="generateDraft"><Sparkles :size="15" />根据档案生成</button></div>
           <div class="form-grid two">
-            <label>目标 JD<select v-model="form.jobId" class="input"><option value="">通用简历</option><option v-for="job in store.workspace?.jobs" :key="job.id" :value="job.id">{{ job.company }} · {{ job.title }}</option></select></label>
+            <label>目标岗位<select v-model="form.jobId" class="input"><option value="">通用简历</option><option v-for="job in store.workspace?.jobs" :key="job.id" :value="job.id">{{ job.company }} · {{ job.title }}</option></select></label>
             <label>版本状态<select v-model="form.status" class="input"><option value="draft">草稿</option><option value="ready">可投递</option><option value="submitted">已投递</option></select></label>
           </div>
           <label>版本名称<input v-model="form.name" class="input" required data-testid="resume-name" placeholder="公司 · 岗位 定向简历" /></label>
@@ -128,7 +128,7 @@ async function copyMarkdown(): Promise<void> {
         </article>
       </div>
 
-      <div v-else class="empty-state resume-empty"><div class="empty-icon"><FileText :size="22" /></div><h3>创建第一份定向简历</h3><p>选择目标 JD 后，系统会从职业档案、技能和项目经历中生成可编辑草稿。</p><button class="button primary" type="button" @click="newVariant">新建简历版本</button></div>
+      <div v-else class="empty-state resume-empty"><div class="empty-icon"><FileText :size="22" /></div><h3>创建第一份定向简历</h3><p>选择目标岗位后，系统会从职业档案、技能和项目经历中生成可编辑草稿。</p><button class="button primary" type="button" @click="newVariant">新建简历版本</button></div>
     </div>
   </section>
 </template>

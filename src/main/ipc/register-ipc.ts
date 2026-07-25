@@ -52,7 +52,9 @@ export function registerIpc(
   ipcMain.handle(IPC.saveResumeVariant, (_event, input) => safe(() => workspace.saveResumeVariant(input)));
   ipcMain.handle(IPC.saveJobSource, (_event, input) => safe(() => workspace.saveJobSource(input)));
   ipcMain.handle(IPC.saveJobFilterPreset, (_event, input) => safe(() => workspace.saveJobFilterPreset(input)));
+  ipcMain.handle(IPC.deleteJobFilterPreset, (_event, id) => safe(() => workspace.deleteJobFilterPreset(String(id))));
   ipcMain.handle(IPC.saveJobAlertRule, (_event, input) => safe(() => workspace.saveJobAlertRule(input)));
+  ipcMain.handle(IPC.deleteJobAlertRule, (_event, id) => safe(() => workspace.deleteJobAlertRule(String(id))));
   ipcMain.handle(IPC.validateJobSource, (_event, id) => safe(() => workspace.validateJobSource(String(id))));
   ipcMain.handle(IPC.saveCareerSearchPlan, (_event, input) => safe(() => workspace.saveCareerSearchPlan(input)));
   ipcMain.handle(IPC.runCareerSearchPlan, (_event, id) => safe(() => workspace.runCareerSearchPlan(String(id))));
@@ -63,13 +65,17 @@ export function registerIpc(
   ipcMain.handle(IPC.getJobSyncStatus, () => safe(() => jobSync.getStatus()));
   ipcMain.handle(IPC.promoteSyncedJob, (_event, id) => safe(() => workspace.promoteSyncedJob(String(id))));
   ipcMain.handle(IPC.updateSyncedJobStatus, (_event, id, status) => safe(() => workspace.updateSyncedJobStatus(String(id), status)));
+  ipcMain.handle(IPC.bulkUpdateSyncedJobStatus, (_event, ids, status) => safe(() => workspace.bulkUpdateSyncedJobStatus(Array.isArray(ids) ? ids.map(String) : [], status)));
+  ipcMain.handle(IPC.bulkRestoreSyncedJobs, (_event, ids) => safe(() => workspace.bulkRestoreSyncedJobs(Array.isArray(ids) ? ids.map(String) : [])));
   ipcMain.handle(IPC.deleteSyncedJobPermanently, (_event, id) => safe(() => workspace.deleteSyncedJobPermanently(String(id))));
+  ipcMain.handle(IPC.bulkDeleteSyncedJobsPermanently, (_event, ids) => safe(() => workspace.bulkDeleteSyncedJobsPermanently(Array.isArray(ids) ? ids.map(String) : [])));
   ipcMain.handle(IPC.startTraining, (_event, input) => safe(() => workspace.startTraining(input)));
   ipcMain.handle(IPC.submitTraining, (_event, input) => safe(() => workspace.submitTraining(input)));
   ipcMain.handle(IPC.finalizeTraining, (_event, input) => safe(() => workspace.finalizeTraining(input)));
   ipcMain.handle(IPC.coachTraining, (_event, input) => safe(() => provider.coach(input)));
   ipcMain.handle(IPC.createBackup, () => safe(() => repository.createBackup()));
   ipcMain.handle(IPC.exportMarkdown, () => safe(() => repository.exportMarkdown()));
+  ipcMain.handle(IPC.exportJobData, (_event, kind) => safe(() => repository.exportJobData(kind === 'json' || kind === 'report' ? kind : 'csv')));
   ipcMain.handle(IPC.saveProvider, (_event, input) => safe(() => provider.save(input)));
   ipcMain.handle(IPC.testProvider, () => safe(() => provider.testConnection()));
   ipcMain.handle(IPC.copyText, (_event, value) => safe(() => {

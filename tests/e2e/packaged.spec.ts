@@ -4,7 +4,9 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-const executablePath = path.resolve('release', 'win-unpacked', 'Interview OS.exe');
+const executablePath = process.env.INTERVIEW_OS_PACKAGED_EXECUTABLE
+  ? path.resolve(process.env.INTERVIEW_OS_PACKAGED_EXECUTABLE)
+  : path.resolve('release', 'win-unpacked', 'Interview OS.exe');
 
 test('packaged Windows application starts and can write isolated local data', async () => {
   test.skip(!existsSync(executablePath), 'Run npm run package:win before the packaged smoke test.');

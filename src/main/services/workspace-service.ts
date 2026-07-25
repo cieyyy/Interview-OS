@@ -436,6 +436,20 @@ export class WorkspaceService {
     });
   }
 
+  async deleteJobFilterPreset(id: string): Promise<{ deleted: boolean }> {
+    return this.repository.update((draft) => {
+      const before = draft.jobFilterPresets.length;
+      draft.jobFilterPresets = draft.jobFilterPresets.filter((item) => item.id !== id);
+      for (const alert of draft.jobAlertRules) {
+        if (alert.presetId === id) {
+          alert.presetId = undefined;
+          alert.updatedAt = nowIso();
+        }
+      }
+      return { deleted: draft.jobFilterPresets.length < before };
+    });
+  }
+
   async saveJobAlertRule(input: JobAlertRuleInput): Promise<JobAlertRule> {
     const valid = validateJobAlertRuleInput(input);
     return this.repository.update((draft) => {
@@ -451,6 +465,14 @@ export class WorkspaceService {
       if (existingIndex >= 0) draft.jobAlertRules[existingIndex] = entity;
       else draft.jobAlertRules.unshift(entity);
       return entity;
+    });
+  }
+
+  async deleteJobAlertRule(id: string): Promise<{ deleted: boolean }> {
+    return this.repository.update((draft) => {
+      const before = draft.jobAlertRules.length;
+      draft.jobAlertRules = draft.jobAlertRules.filter((item) => item.id !== id);
+      return { deleted: draft.jobAlertRules.length < before };
     });
   }
 
@@ -859,11 +881,51 @@ export class WorkspaceService {
     });
   }
 
+  async bulkUpdateSyncedJobStatus(ids: string[], status: SyncedJobStatus): Promise<{ updated: number }> {
+    if (!['new', 'saved', 'ignored', 'trashed'].includes(status)) throw new Error('同步岗位状态无效');
+    const selectedIds = new Set(ids.filter(Boolean));
+    return this.repository.update((draft) => {
+      let updated = 0;
+      const updatedAt = nowIso();
+      for (const item of draft.syncedJobs) {
+        if (!selectedIds.has(item.id) || item.status === status) continue;
+        item.status = status;
+        item.updatedAt = updatedAt;
+        updated += 1;
+      }
+      return { updated };
+    });
+  }
+
+  async bulkRestoreSyncedJobs(ids: string[]): Promise<{ restored: number }> {
+    const selectedIds = new Set(ids.filter(Boolean));
+    return this.repository.update((draft) => {
+      let restored = 0;
+      const updatedAt = nowIso();
+      for (const item of draft.syncedJobs) {
+        if (!selectedIds.has(item.id) || item.status !== 'trashed') continue;
+        item.status = item.linkedJobId ? 'saved' : 'new';
+        item.updatedAt = updatedAt;
+        restored += 1;
+      }
+      return { restored };
+    });
+  }
+
   async deleteSyncedJobPermanently(id: string): Promise<{ deleted: boolean }> {
     return this.repository.update((draft) => {
       const before = draft.syncedJobs.length;
       draft.syncedJobs = draft.syncedJobs.filter((job) => job.id !== id);
       return { deleted: draft.syncedJobs.length < before };
+    });
+  }
+
+  async bulkDeleteSyncedJobsPermanently(ids: string[]): Promise<{ deleted: number }> {
+    const selectedIds = new Set(ids.filter(Boolean));
+    return this.repository.update((draft) => {
+      const before = draft.syncedJobs.length;
+      draft.syncedJobs = draft.syncedJobs.filter((job) => !selectedIds.has(job.id) || job.status !== 'trashed');
+      return { deleted: before - draft.syncedJobs.length };
     });
   }
 
