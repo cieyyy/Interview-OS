@@ -28,6 +28,7 @@ Interview OS 是一款本地优先、AI 增强的 Windows 个人职业 AI 操作
 - Obsidian 当前为单向导出；导入、文件监听和双向同步属于后续阶段。
 - v0.7.0 Windows 安装版和便携版已可生成并通过打包应用冒烟测试；正式发布时仍需核对 GitHub Release 资产和 SHA-256。
 
+
 ## 开发命令
 
 ```powershell
@@ -84,8 +85,10 @@ python scripts/build_product_pdf.py
 
 - 18 个测试文件、81 个单元与集成测试通过。
 - Vue/TypeScript 类型检查与生产构建通过。
+
 - Electron 主流程和 12 个主模块字体一致性 E2E 通过。
 - Windows 安装包、便携版生成成功，打包应用冒烟测试通过。
+
 
 ## 数据安全
 
