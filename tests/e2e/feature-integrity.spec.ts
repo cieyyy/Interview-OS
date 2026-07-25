@@ -32,8 +32,10 @@ test('project deep dive is read-only and connector verification states are hones
 
     await page.getByTestId('nav-job-sync').click();
     await page.getByTestId('job-sync-tab-sources').click();
-    await expect(page.getByRole('button', { name: '尚未接入' }).first()).toBeDisabled();
-    await page.getByRole('button', { name: '真实连通测试' }).click();
+    const liveCheck = page.getByRole('button', { name: '真实连通测试' });
+    await expect(liveCheck).toBeEnabled();
+    await expect(page.getByRole('button', { name: '检查页面适配器' }).first()).toBeEnabled();
+    await liveCheck.click();
     await expect(page.locator('.toast')).toContainText('真实连通');
     await expect(page.locator('.toast')).toContainText('不代表招聘网站抓取已成功');
   } finally {

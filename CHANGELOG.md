@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.1 - 2026-07-24
+
+### Added
+
+- 新增 macOS Intel（x64）与 Apple Silicon（arm64）的 DMG 和 ZIP 打包目标。
+- 新增 GitHub Actions macOS 双架构构建、冒烟验证、SHA-256 生成和 Release 上传流程。
+- 新增 macOS 原生应用、编辑和窗口菜单，保留复制、粘贴、撤销、全选和退出等系统快捷键。
+
+### Changed
+
+- GPU 软件渲染降级仅在 Windows 启用，macOS 使用系统原生图形加速。
+- 打包冒烟测试支持 Windows 与 macOS 可执行文件路径。
+
+### Known limitations
+
+- 当前 macOS 构建未使用 Apple Developer ID 签名和公证，首次打开需要在 Finder 中右键选择“打开”，或在“隐私与安全性”中确认。
+- Chrome 招聘岗位同步扩展需要在 macOS Chrome 中单独加载仓库随应用提供的扩展目录。
+
 ## 0.8.0 - 2026-07-23
 
 ### Added

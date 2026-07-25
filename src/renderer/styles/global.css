@@ -215,9 +215,27 @@ button.task-row:hover { color: var(--green-dark); background: #f4f8f7; }
 .tag-row span { padding: 4px 7px; color: #52665c; background: #ebf1ed; border-radius: 5px; font-size: var(--font-xs); font-weight: 600; }
 
 .job-import { margin-bottom: 18px; }
+.job-analysis-workspace { display: flex; flex-direction: column; gap: 10px; }
+.job-batch-toolbar { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 12px; background: rgba(255,255,255,.72); border: 1px solid var(--line); border-radius: var(--radius); }
+.job-select-all { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); font-size: var(--font-sm); font-weight: 600; }
+.job-select-all input, .job-list-checkbox { width: 16px; height: 16px; margin: 0; accent-color: var(--blue); }
+.job-selection-count { color: var(--muted); font-size: var(--font-xs); }
+.toolbar-spacer { flex: 1; }
+.job-title-actions { display: flex; align-items: center; gap: 8px; }
+.job-delete-confirm { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; gap: 10px; align-items: center; margin: 0 0 16px; padding: 12px 14px; color: #8d302a; background: #fff5f3; border: 1px solid #edc7c3; }
+.job-delete-confirm.batch { margin: 0; }
+.job-delete-confirm strong, .job-delete-confirm small { display: block; }
+.job-delete-confirm small { margin-top: 3px; color: #795b57; font-size: var(--font-xs); font-weight: 400; }
 .jd-textarea { min-height: 270px; resize: vertical; line-height: 1.65; }
 .jobs-layout { display: grid; grid-template-columns: 285px minmax(0,1fr); min-height: 620px; overflow: hidden; background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-soft); }
 .jobs-list { border-radius: 0; }
+.job-list-item { align-items: center; padding: 7px 8px; }
+.job-list-checkbox { flex: 0 0 auto; }
+.job-list-select { display: flex; align-items: flex-start; gap: 10px; min-width: 0; flex: 1; padding: 4px 3px; color: inherit; text-align: left; background: transparent; border: 0; }
+.job-list-select > span:last-child { min-width: 0; flex: 1; }
+.job-list-select strong, .job-list-select small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-list-select strong { font-size: var(--font-sm); }
+.job-list-select small { margin-top: 5px; color: var(--muted); font-size: var(--font-xs); }
 .job-detail { border: 0; border-radius: 0; box-shadow: none; padding: 25px 28px; }
 .job-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
 .job-title h2 { margin: 4px 0 0; font-size: var(--font-xl); }
@@ -404,6 +422,16 @@ button.task-row:hover { color: var(--green-dark); background: #f4f8f7; }
 .check-list { margin: 0; padding: 0; list-style: none; }
 .check-list li { padding: 8px 0; color: #555c58; border-top: 1px solid #eef0ed; font-size: var(--font-xs); }
 .check-list li::before { content: "✓"; margin-right: 8px; color: var(--green); font-weight: 700; }
+.danger-zone { border-color: #edc7c3; }
+.settings-icon.danger { color: #b33a32; background: #fff0ee; border-color: #edc7c3; }
+.cleanup-scope { margin: 0 0 16px; padding: 12px 14px 12px 30px; color: #59625d; background: #fbfcfd; border: 1px solid #e5e9ed; font-size: var(--font-xs); line-height: 1.75; }
+.cleanup-confirm { display: grid; gap: 12px; padding: 14px; background: #fff7f5; border: 1px solid #edc7c3; }
+.cleanup-confirm label { display: grid; gap: 6px; color: #653832; font-size: var(--font-sm); font-weight: 600; }
+.cleanup-warning { display: flex; align-items: flex-start; gap: 9px; color: #a3332c; }
+.cleanup-warning span, .cleanup-warning strong, .cleanup-warning small { display: block; }
+.cleanup-warning small { margin-top: 3px; color: #7b5a56; font-size: var(--font-xs); font-weight: 400; }
+.cleanup-confirm .button-row { margin-top: 0; }
+.cleanup-backup { color: #704137; background: #fff6f3; border-color: #edc7c3; }
 .obsidian-settings { display: flex; flex-direction: column; gap: 16px; }
 .obsidian-settings .settings-heading { margin-bottom: 0; }
 .obsidian-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }

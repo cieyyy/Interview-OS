@@ -2,3 +2,5 @@
 *.ps1 text eol=crlf
 *.exe binary
 *.png binary
+.codex-tools/*.zip filter=lfs diff=lfs merge=lfs -text
+.codex-tools/bin/*.exe filter=lfs diff=lfs merge=lfs -text

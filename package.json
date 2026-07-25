@@ -1,9 +1,9 @@
 {
   "name": "interview-os",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "author": "Interview OS Team",
-  "description": "Local-first personal career AI operating system for Windows",
+  "description": "Local-first personal career AI operating system for Windows and macOS",
   "main": "dist-electron/main/main.js",
   "scripts": {
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
@@ -19,7 +19,8 @@
     "test:packaged": "playwright test tests/e2e/packaged.spec.ts",
     "capture:ui": "npm run build && node scripts/capture-ui-screenshots.cjs",
     "audit:resumes": "npm run build:electron && node scripts/audit-resume-import.cjs",
-    "package:win": "npm run build && electron-builder --win"
+    "package:win": "npm run build && electron-builder --win",
+    "package:mac": "npm run build && electron-builder --mac --publish never"
   },
   "dependencies": {
     "@lucide/vue": "^1.25.0",
@@ -80,6 +81,23 @@
     },
     "portable": {
       "artifactName": "Interview-OS-${version}-${arch}-portable.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "Interview-OS-${version}-mac-${arch}.${ext}",
+      "category": "public.app-category.productivity",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Interview OS 使用麦克风进行用户主动发起的语音面试训练。"
+      }
+    },
+    "dmg": {
+      "sign": false
     }
   }
 }

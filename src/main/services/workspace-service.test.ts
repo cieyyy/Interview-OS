@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,6 +23,65 @@ afterEach(async () => {
 });
 
 describe('WorkspaceService', () => {
+  it('backs up and clears user data while preserving connector settings', async () => {
+    const token = service.getState().settings.jobSyncToken;
+    await service.saveProfile({
+      nickname: 'Cleanup Candidate', currentRole: 'Engineer', yearsExperience: 3, education: 'Bachelor',
+      targetRoles: ['Platform Engineer'], skills: [{ name: 'Kubernetes', level: '熟悉' }]
+    });
+    await service.saveProject({
+      name: 'Cleanup Project', role: 'Engineer', background: 'Production platform',
+      responsibilities: 'Operations', results: 'Stable release', techStack: ['Kubernetes']
+    });
+    await service.analyzeJob({ title: 'Platform Engineer', company: 'Example', rawText: 'Kubernetes and Docker' });
+
+    const result = await service.clearWorkspaceData();
+    const backup = JSON.parse(await readFile(result.backup.path, 'utf8')) as ReturnType<WorkspaceService['getState']>;
+
+    expect(backup.profile.nickname).toBe('Cleanup Candidate');
+    expect(backup.projects).toHaveLength(1);
+    expect(backup.jobs).toHaveLength(1);
+    expect(result.state.profile.nickname).toBe('');
+    expect(result.state.projects).toHaveLength(0);
+    expect(result.state.jobs).toHaveLength(0);
+    expect(result.state.settings.jobSyncToken).toBe(token);
+    expect(result.state.jobSources.map((item) => item.id)).toEqual(service.getState().jobSources.map((item) => item.id));
+  });
+
+  it('recomputes saved job analysis when the career profile or project evidence changes', async () => {
+    await service.saveProfile({
+      nickname: 'Candidate', currentRole: 'Operations', yearsExperience: 2, education: 'Bachelor',
+      targetRoles: ['Platform Engineer'], skills: []
+    });
+    const job = await service.analyzeJob({
+      title: 'Platform Engineer', company: 'Example', rawText: 'Must be familiar with Kubernetes and Docker.'
+    });
+    expect(job.requirements.find((item) => item.label === 'Kubernetes')?.matchStatus).toBe('gap');
+
+    await service.saveProfile({
+      nickname: 'Candidate', currentRole: 'Operations', yearsExperience: 2, education: 'Bachelor',
+      targetRoles: ['Platform Engineer'], skills: [{ name: 'Kubernetes', level: '熟悉' }]
+    });
+    const afterProfile = service.getState().jobs.find((item) => item.id === job.id)!;
+    expect(afterProfile.requirements.find((item) => item.label === 'Kubernetes')?.matchStatus).toBe('related');
+    const skillId = service.getState().profile.skills[0].id;
+
+    await service.saveProject({
+      name: 'Cluster Platform', role: 'Engineer', background: 'Kubernetes production platform',
+      responsibilities: 'Operated Kubernetes clusters', results: 'Improved deployment reliability', techStack: ['Kubernetes']
+    });
+    const afterProject = service.getState().jobs.find((item) => item.id === job.id)!;
+    expect(afterProject.requirements.find((item) => item.label === 'Kubernetes')?.matchStatus).toBe('evidenced');
+    expect(afterProject.createdAt).toBe(job.createdAt);
+    expect(service.getState().knowledge.find((item) => item.id === `job-knowledge-${job.id}`)?.updatedAt).toBe(afterProject.updatedAt);
+
+    await service.saveProfile({
+      nickname: 'Candidate', currentRole: 'Operations', yearsExperience: 3, education: 'Bachelor',
+      targetRoles: ['Platform Engineer'], skills: [{ name: 'Kubernetes', level: '掌握' }]
+    });
+    expect(service.getState().profile.skills[0].id).toBe(skillId);
+  });
+
   it('completes the project → JD → training → knowledge loop', async () => {
     const project = await service.saveProject({
       name: '测试项目', role: '运维', background: '运行在 Kubernetes 上',
@@ -311,6 +370,44 @@ describe('WorkspaceService', () => {
     const saved = await service.saveApplication({ jobId: job.id, resumeVariantId: resume.id, title: job.title });
     expect(saved.resumeVariantId).toBe(resume.id);
     await expect(service.saveApplication({ jobId: otherJob.id, resumeVariantId: resume.id, title: otherJob.title })).rejects.toThrow('投递简历与目标 JD 不匹配');
+  });
+
+  it('backs up and deletes one job analysis without deleting linked user records', async () => {
+    const job = await service.analyzeJob({ title: 'Platform Engineer', company: 'Example', rawText: 'Kubernetes and Docker' });
+    const retainedJob = await service.analyzeJob({ title: 'Database Engineer', company: 'Example', rawText: 'MySQL and SQL' });
+    const resume = await service.saveResumeVariant({
+      name: 'Platform Resume', jobId: job.id, headline: 'Platform Engineer', summary: 'Platform experience',
+      highlights: [], projectIds: [], skillIds: []
+    });
+    const application = await service.saveApplication({ jobId: job.id, resumeVariantId: resume.id, title: job.title });
+
+    const result = await service.deleteJobAnalysis(job.id);
+    const backup = JSON.parse(await readFile(result.backup!.path, 'utf8')) as ReturnType<WorkspaceService['getState']>;
+
+    expect(result.deleted).toBe(true);
+    expect(result.unlinkedRecords).toBeGreaterThanOrEqual(2);
+    expect(backup.jobs.some((item) => item.id === job.id)).toBe(true);
+    expect(service.getState().jobs.map((item) => item.id)).toEqual([retainedJob.id]);
+    expect(service.getState().knowledge.some((item) => item.id === `job-knowledge-${job.id}`)).toBe(false);
+    expect(service.getState().resumeVariants.find((item) => item.id === resume.id)?.jobId).toBeUndefined();
+    expect(service.getState().applications.find((item) => item.id === application.id)?.jobId).toBeUndefined();
+  });
+
+  it('deletes selected or all custom job analyses in one backed-up operation', async () => {
+    const first = await service.analyzeJob({ title: 'Platform Engineer', rawText: 'Kubernetes and Docker' });
+    const second = await service.analyzeJob({ title: 'Database Engineer', rawText: 'MySQL and SQL' });
+    const retained = await service.analyzeJob({ title: 'Network Engineer', rawText: 'Nginx and TCP/IP' });
+
+    const selectedResult = await service.deleteJobAnalyses([first.id, second.id, 'missing-id', first.id]);
+    const selectedBackup = JSON.parse(await readFile(selectedResult.backup!.path, 'utf8')) as ReturnType<WorkspaceService['getState']>;
+
+    expect(selectedResult).toMatchObject({ deleted: 2, requested: 3 });
+    expect(selectedBackup.jobs).toHaveLength(3);
+    expect(service.getState().jobs.map((item) => item.id)).toEqual([retained.id]);
+
+    const allResult = await service.deleteJobAnalyses(service.getState().jobs.map((job) => job.id));
+    expect(allResult).toMatchObject({ deleted: 1, requested: 1 });
+    expect(service.getState().jobs).toHaveLength(0);
   });
 
   it('runs the local career agent and persists company watch and career memory', async () => {

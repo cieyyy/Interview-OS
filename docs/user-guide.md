@@ -133,6 +133,7 @@ npm run test
 npm run build
 npm run test:e2e
 npm run package:win
+npm run package:mac
 ```
 
 Electron E2E 会启动隔离的桌面测试实例。v0.5.0 当前自动化基线为 55 个单元与集成测试，以及主流程和全模块字体一致性 E2E。

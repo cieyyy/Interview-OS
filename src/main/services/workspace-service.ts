@@ -36,7 +36,7 @@ import type {
   TrainingStartInput,
   WorkspaceState
 } from '../../shared/domain';
-import { createDemoState, nowIso } from '../../shared/domain';
+import { createDemoState, createEmptyState, nowIso } from '../../shared/domain';
 import { calculateResumeMatch } from '../../shared/career-engine';
 import { matchJobsForPlan } from '../../shared/career-agent-engine';
 import { analyzeJob } from '../../shared/job-analyzer';
@@ -98,6 +98,28 @@ function upsertGeneratedKnowledge(draft: WorkspaceState, entity: KnowledgeItem):
   const index = draft.knowledge.findIndex((item) => item.id === entity.id);
   if (index >= 0) draft.knowledge[index] = { ...entity, createdAt: draft.knowledge[index].createdAt };
   else draft.knowledge.unshift(entity);
+}
+
+function refreshSavedJobAnalyses(draft: WorkspaceState): void {
+  const refreshedAt = nowIso();
+  draft.jobs = draft.jobs.map((job) => {
+    const refreshed = analyzeJob({ title: job.title, company: job.company, rawText: job.rawText }, draft);
+    const completedTasks = new Set(job.tasks.filter((task) => task.completed).map((task) => task.title));
+    const entity: JobDescription = {
+      ...refreshed,
+      id: job.id,
+      createdAt: job.createdAt,
+      updatedAt: refreshedAt,
+      tasks: refreshed.tasks.map((task) => ({ ...task, completed: completedTasks.has(task.title) }))
+    };
+    const knowledge = draft.knowledge.find((item) => item.id === `job-knowledge-${job.id}`);
+    if (knowledge) {
+      knowledge.contentMarkdown = `# ${entity.title}\n\n## 技能与证据\n\n${entity.requirements.map((item) => `- **${item.label}**：${item.priority} / ${item.matchStatus}${item.evidenceSummary ? ` / ${item.evidenceSummary}` : ''}`).join('\n')}\n\n## 准备任务\n\n${entity.tasks.map((item) => `- [${item.completed ? 'x' : ' '}] ${item.title}`).join('\n')}`;
+      knowledge.skillNames = entity.requirements.filter((item) => item.category === 'technology').map((item) => item.label);
+      knowledge.updatedAt = refreshedAt;
+    }
+    return entity;
+  });
 }
 
 function flattenJsonLd(value: unknown): Array<Record<string, unknown>> {
@@ -184,6 +206,16 @@ export class WorkspaceService {
     return this.repository.replaceState(createDemoState());
   }
 
+  async clearWorkspaceData(): Promise<{ backup: Awaited<ReturnType<AtomicWorkspaceRepository['createBackup']>>; state: WorkspaceState }> {
+    const backup = await this.repository.createBackup();
+    const current = this.repository.getState();
+    const cleared = createEmptyState();
+    cleared.settings = current.settings;
+    cleared.jobSources = current.jobSources;
+    const state = await this.repository.replaceState(cleared);
+    return { backup, state };
+  }
+
   async saveProfile(input: ProfileInput): Promise<CareerProfile> {
     if (!input || typeof input !== 'object') throw new Error('职业档案不能为空');
     const nickname = String(input.nickname ?? '').trim().slice(0, 80);
@@ -191,13 +223,15 @@ export class WorkspaceService {
     const education = String(input.education ?? '').trim().slice(0, 120);
     const yearsExperience = Math.max(0, Math.min(60, Number(input.yearsExperience) || 0));
     const targetRoles = [...new Set((input.targetRoles ?? []).map((item) => String(item).trim()).filter(Boolean))].slice(0, 10);
-    const skills = (input.skills ?? []).slice(0, 100).map((item) => ({
-      id: randomUUID(),
-      name: String(item.name ?? '').trim().slice(0, 80),
-      level: item.level
-    })).filter((item) => item.name);
     return this.repository.update((draft) => {
+      const existingSkills = new Map(draft.profile.skills.map((item) => [item.name.trim().toLocaleLowerCase(), item]));
+      const skills = (input.skills ?? []).slice(0, 100).map((item) => {
+        const name = String(item.name ?? '').trim().slice(0, 80);
+        const existing = existingSkills.get(name.toLocaleLowerCase());
+        return { id: existing?.id ?? randomUUID(), name, level: item.level };
+      }).filter((item) => item.name);
       draft.profile = { nickname, currentRole, education, yearsExperience, targetRoles, skills, updatedAt: nowIso() };
+      refreshSavedJobAnalyses(draft);
       return draft.profile;
     });
   }
@@ -271,6 +305,7 @@ export class WorkspaceService {
       };
       if (existingIndex >= 0) draft.projects[existingIndex] = entity;
       else draft.projects.unshift(entity);
+      refreshSavedJobAnalyses(draft);
       return entity;
     });
   }
@@ -298,6 +333,57 @@ export class WorkspaceService {
       });
       return entity;
     });
+  }
+
+  async deleteJobAnalysis(id: string): Promise<{ deleted: boolean; backup?: Awaited<ReturnType<AtomicWorkspaceRepository['createBackup']>>; unlinkedRecords: number }> {
+    const result = await this.deleteJobAnalyses([id]);
+    return { deleted: result.deleted > 0, backup: result.backup, unlinkedRecords: result.unlinkedRecords };
+  }
+
+  async deleteJobAnalyses(ids: string[]): Promise<{ deleted: number; requested: number; backup?: Awaited<ReturnType<AtomicWorkspaceRepository['createBackup']>>; unlinkedRecords: number }> {
+    const requestedIds = [...new Set((ids ?? []).map((id) => String(id ?? '').trim()).filter(Boolean))];
+    const current = this.repository.getState();
+    const jobIds = new Set(requestedIds.filter((id) => current.jobs.some((item) => item.id === id)));
+    if (!jobIds.size) return { deleted: 0, requested: requestedIds.length, unlinkedRecords: 0 };
+    const generatedKnowledgeIds = new Set([...jobIds].map((id) => `job-knowledge-${id}`));
+    const backup = await this.repository.createBackup();
+    const unlinkedRecords = await this.repository.update((draft) => {
+      let unlinked = 0;
+      draft.jobs = draft.jobs.filter((item) => !jobIds.has(item.id));
+      draft.knowledge = draft.knowledge
+        .filter((item) => !generatedKnowledgeIds.has(item.id))
+        .map((item) => {
+          const hadJob = item.jobIds.some((id) => jobIds.has(id)) || item.relatedIds.some((id) => jobIds.has(id));
+          if (hadJob) unlinked += 1;
+          return {
+            ...item,
+            jobIds: item.jobIds.filter((id) => !jobIds.has(id)),
+            relatedIds: item.relatedIds.filter((id) => !jobIds.has(id) && !generatedKnowledgeIds.has(id))
+          };
+        });
+      for (const project of draft.projects) {
+        project.relatedKnowledgeIds = project.relatedKnowledgeIds.filter((id) => !generatedKnowledgeIds.has(id));
+      }
+      for (const application of draft.applications) {
+        if (application.jobId && jobIds.has(application.jobId)) { delete application.jobId; unlinked += 1; }
+      }
+      for (const resume of draft.resumeVariants) {
+        if (resume.jobId && jobIds.has(resume.jobId)) { delete resume.jobId; unlinked += 1; }
+      }
+      for (const session of draft.trainingSessions) {
+        if (session.jobId && jobIds.has(session.jobId)) { delete session.jobId; unlinked += 1; }
+      }
+      for (const session of draft.coachSessions) {
+        if (session.targetJobId && jobIds.has(session.targetJobId)) { delete session.targetJobId; unlinked += 1; }
+      }
+      for (const syncedJob of draft.syncedJobs) {
+        if (syncedJob.linkedJobId && jobIds.has(syncedJob.linkedJobId)) { delete syncedJob.linkedJobId; unlinked += 1; }
+      }
+      draft.obsidianSyncIndex = draft.obsidianSyncIndex.filter((item) => !generatedKnowledgeIds.has(item.entityId));
+      draft.obsidianSyncConflicts = draft.obsidianSyncConflicts.filter((item) => !generatedKnowledgeIds.has(item.entityId));
+      return unlinked;
+    });
+    return { deleted: jobIds.size, requested: requestedIds.length, backup, unlinkedRecords };
   }
 
   async saveApplication(input: JobApplicationInput): Promise<JobApplication> {

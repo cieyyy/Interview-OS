@@ -33,7 +33,8 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     page.on('console', (message) => console.log(`Renderer console ${message.type()}: ${message.text()}`));
     page.on('crash', () => console.log(`Renderer crashed. Electron stderr:\n${stderr.join('')}`));
     await page.waitForLoadState('domcontentloaded');
-    expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu() === null)).toBe(true);
+    const hasApplicationMenu = await app.evaluate(({ Menu }) => Menu.getApplicationMenu() !== null);
+    expect(hasApplicationMenu).toBe(process.platform === 'darwin');
     await expect(page.getByRole('heading', { name: '今天，推进一件最重要的事' })).toBeVisible();
     await expect(page.getByTestId('dashboard-empty')).toBeVisible();
     await page.getByRole('button', { name: '加载演示数据' }).click();
@@ -181,7 +182,7 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await page.screenshot({ path: path.resolve('artifacts', 'coach-v0.6.png'), fullPage: true });
 
     await page.getByTestId('nav-settings').click();
-    await expect(page.locator('.settings-card')).toHaveCount(4);
+    await expect(page.locator('.settings-card')).toHaveCount(5);
     await mockFileSelection(dataDirectory);
     await page.getByTestId('obsidian-create-vault').click();
     await expect(page.getByTestId('obsidian-settings')).toContainText('Interview-OS-Vault');

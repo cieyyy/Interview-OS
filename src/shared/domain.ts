@@ -889,6 +889,24 @@ export interface BackupInfo {
   sha256: string;
 }
 
+export interface DataCleanupResult {
+  backup: BackupInfo;
+  state: WorkspaceState;
+}
+
+export interface JobAnalysisDeletionResult {
+  deleted: boolean;
+  backup?: BackupInfo;
+  unlinkedRecords: number;
+}
+
+export interface JobAnalysesDeletionResult {
+  deleted: number;
+  requested: number;
+  backup?: BackupInfo;
+  unlinkedRecords: number;
+}
+
 export interface ExportInfo {
   path: string;
   files: number;

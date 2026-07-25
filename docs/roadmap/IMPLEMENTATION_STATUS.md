@@ -1,5 +1,20 @@
 # Interview OS Implementation Status
 
+## v0.8.1 macOS Compatibility
+
+- [x] macOS DMG and ZIP packaging configuration
+- [x] Intel x64 and Apple Silicon arm64 artifact naming
+- [x] Native macOS application, edit and window menus
+- [x] macOS microphone usage description
+- [x] Cross-platform packaged smoke-test path
+- [x] GitHub Actions dual-architecture build workflow
+- [x] Source tests, type checking and production build
+- [x] GitHub macOS runner package verification
+- [x] macOS application bundle and process-launch verification
+- [ ] macOS interactive UI smoke test on physical Mac hardware
+- [x] macOS SHA-256 manifest
+- [x] v0.8.1 GitHub Release publishing
+
 ## v0.8.0 Multi-source Job Workflow Upgrade
 
 - [x] Manual and automatic browser-extension capture modes
