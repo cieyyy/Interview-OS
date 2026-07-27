@@ -69,4 +69,20 @@ describe('OpenAICompatibleProvider', () => {
       expect.objectContaining({ type: 'input_image', image_url: 'data:image/png;base64,YWJj' })
     ]));
   });
+
+  it('omits the authorization header for a local provider without authentication', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: 'OK' } }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const provider = new OpenAICompatibleProvider({
+      kind: 'openai-compatible', name: 'Ollama', baseUrl: 'http://127.0.0.1:11434/v1',
+      model: 'qwen2.5:7b', authMode: 'none', enabled: true, hasSecret: false
+    });
+
+    await provider.testConnection('');
+
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(request.headers).toEqual({ 'Content-Type': 'application/json' });
+  });
 });

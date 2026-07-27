@@ -6,10 +6,9 @@ export class OpenAICompatibleProvider implements AIProvider {
   constructor(readonly config: ProviderConfig) {}
 
   private headers(apiKey: string): Record<string, string> {
-    return {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    };
+    return apiKey
+      ? { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+      : { 'Content-Type': 'application/json' };
   }
 
   private async completeWithResponses(request: CompletionRequest, apiKey: string): Promise<CompletionResponse> {

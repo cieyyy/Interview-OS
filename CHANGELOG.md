@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- 新增职业记忆中心，自动生成职业总览、能力证据、职业偏好和训练缺口。
+- 新增固定的长期职业陪练会话；模型可提出最多 3 条待确认记忆，未经用户确认不会写入长期记忆。
+- 新增 `AI_CONTEXT.md` 导出，使用结构化本地工作区生成可移植的个人职业上下文。
+- 新增 DeepSeek、OpenAI、通义千问、智谱 GLM、Moonshot、本地 Ollama、自定义 OpenAI-compatible 和 Dify 服务预设。
+- 新增本地免密模型模式，兼容 Ollama 等不需要 Bearer Token 的本机服务。
+
+### Changed
+
+- AI 模型设置改为服务商预设与高级参数并存，继续使用系统安全存储保存 API Key。
+- 职业陪练只发送压缩后的职业总览和最近会话，不会默认上传整个本地工作区。
+
+### Verified
+
+- TypeScript/Vue 类型检查和生产构建通过。
+- 22 个测试文件、98 项单元与集成测试通过。
+- Electron E2E 覆盖职业记忆、固定陪练、上下文导出和本地 Ollama 预设。
+
 ## 0.8.1 - 2026-07-24
 
 ### Added

@@ -1,5 +1,7 @@
 import type {
   CareerAgentRun,
+  CareerCompanionInput,
+  CareerCompanionResult,
   CareerMemoryInput,
   CareerMemoryItem,
   CareerSearchPlan,
@@ -78,6 +80,7 @@ export const IPC = {
   saveCareerSearchPlan: 'career-search-plan:save',
   runCareerSearchPlan: 'career-search-plan:run',
   saveCareerMemory: 'career-memory:save',
+  careerCompanion: 'career-companion:send',
   saveCompanyWatch: 'company-watch:save',
   validateCompanyWatch: 'company-watch:validate',
   checkCompanyWatchesOnStartup: 'company-watch:startup-check',
@@ -95,6 +98,7 @@ export const IPC = {
   createBackup: 'backup:create',
   clearWorkspaceData: 'workspace:clear-data',
   exportMarkdown: 'export:markdown',
+  exportCareerContext: 'export:career-context',
   exportJobData: 'export:job-data',
   saveProvider: 'provider:save',
   testProvider: 'provider:test',
@@ -137,6 +141,7 @@ export interface InterviewOSApi {
   saveCareerSearchPlan(input: CareerSearchPlanInput): Promise<Result<CareerSearchPlan>>;
   runCareerSearchPlan(id: string): Promise<Result<CareerAgentRun>>;
   saveCareerMemory(input: CareerMemoryInput): Promise<Result<CareerMemoryItem>>;
+  careerCompanion(input: CareerCompanionInput): Promise<Result<CareerCompanionResult>>;
   saveCompanyWatch(input: CompanyWatchInput): Promise<Result<CompanyWatch>>;
   validateCompanyWatch(id: string): Promise<Result<CompanyWatch>>;
   checkCompanyWatchesOnStartup(): Promise<Result<JobSyncRun[]>>;
@@ -154,6 +159,7 @@ export interface InterviewOSApi {
   createBackup(): Promise<Result<BackupInfo>>;
   clearWorkspaceData(): Promise<Result<DataCleanupResult>>;
   exportMarkdown(): Promise<Result<ExportInfo>>;
+  exportCareerContext(): Promise<Result<ExportInfo>>;
   exportJobData(kind: 'csv' | 'json' | 'report'): Promise<Result<ExportInfo>>;
   saveProvider(input: ProviderInput): Promise<Result<ProviderConfig>>;
   testProvider(): Promise<Result<ConnectionResult>>;

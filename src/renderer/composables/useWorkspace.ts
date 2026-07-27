@@ -1,5 +1,6 @@
 import { computed, reactive } from 'vue';
 import type {
+  CareerCompanionInput,
   CareerMemoryInput,
   CareerSearchPlanInput,
   CompanyWatchInput,
@@ -220,6 +221,11 @@ export function useWorkspace() {
       if (value) await refresh();
       return value;
     },
+    async careerCompanion(input: CareerCompanionInput) {
+      const value = await run(() => unwrap(window.interviewOS.careerCompanion(toIpcPayload(input))));
+      if (value) await refresh();
+      return value;
+    },
     async saveCompanyWatch(input: CompanyWatchInput) {
       const value = await run(() => unwrap(window.interviewOS.saveCompanyWatch(toIpcPayload(input))), '关注公司已保存');
       if (value) await refresh();
@@ -323,6 +329,9 @@ export function useWorkspace() {
     },
     async exportMarkdown() {
       return run(() => unwrap(window.interviewOS.exportMarkdown()), 'Markdown 已导出');
+    },
+    async exportCareerContext() {
+      return run(() => unwrap(window.interviewOS.exportCareerContext()), 'AI_CONTEXT.md 已导出');
     },
     async exportJobData(kind: 'csv' | 'json' | 'report') {
       return run(() => unwrap(window.interviewOS.exportJobData(kind)), '岗位数据文件已导出');

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { BackupInfo, ExportInfo, WorkspaceState } from '../../shared/domain';
+import { renderCareerContextMarkdown } from '../../shared/career-context';
 import { createEmptyState, nowIso } from '../../shared/domain';
 import { safeFileName, validateWorkspaceState } from '../../shared/validation';
 
@@ -204,6 +205,15 @@ export class AtomicWorkspaceRepository {
     );
     files += 1;
     return { path: exportRoot, files, createdAt };
+  }
+
+  async exportCareerContext(): Promise<ExportInfo> {
+    const createdAt = nowIso();
+    const exportRoot = path.join(this.rootDirectory, 'exports');
+    const target = path.join(exportRoot, 'AI_CONTEXT.md');
+    await mkdir(exportRoot, { recursive: true });
+    await writeFile(target, renderCareerContextMarkdown(this.state, createdAt), 'utf8');
+    return { path: target, files: 1, createdAt };
   }
 
   async exportJobData(kind: 'csv' | 'json' | 'report'): Promise<ExportInfo> {
