@@ -61,6 +61,7 @@ export function registerIpc(
   ipcMain.handle(IPC.saveCareerSearchPlan, (_event, input) => safe(() => workspace.saveCareerSearchPlan(input)));
   ipcMain.handle(IPC.runCareerSearchPlan, (_event, id) => safe(() => workspace.runCareerSearchPlan(String(id))));
   ipcMain.handle(IPC.saveCareerMemory, (_event, input) => safe(() => workspace.saveCareerMemory(input)));
+  ipcMain.handle(IPC.careerCompanion, (_event, input) => safe(() => provider.careerCompanion(input)));
   ipcMain.handle(IPC.saveCompanyWatch, (_event, input) => safe(() => workspace.saveCompanyWatch(input)));
   ipcMain.handle(IPC.validateCompanyWatch, (_event, id) => safe(() => workspace.validateCompanyWatch(String(id))));
   ipcMain.handle(IPC.checkCompanyWatchesOnStartup, () => safe(() => workspace.checkCompanyWatchesOnStartup()));
@@ -78,6 +79,7 @@ export function registerIpc(
   ipcMain.handle(IPC.createBackup, () => safe(() => repository.createBackup()));
   ipcMain.handle(IPC.clearWorkspaceData, () => safe(() => workspace.clearWorkspaceData()));
   ipcMain.handle(IPC.exportMarkdown, () => safe(() => repository.exportMarkdown()));
+  ipcMain.handle(IPC.exportCareerContext, () => safe(() => repository.exportCareerContext()));
   ipcMain.handle(IPC.exportJobData, (_event, kind) => safe(() => repository.exportJobData(kind === 'json' || kind === 'report' ? kind : 'csv')));
   ipcMain.handle(IPC.saveProvider, (_event, input) => safe(() => provider.save(input)));
   ipcMain.handle(IPC.testProvider, () => safe(() => provider.testConnection()));

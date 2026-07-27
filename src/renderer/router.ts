@@ -16,12 +16,14 @@ import CompaniesPage from './pages/CompaniesPage.vue';
 import SkillGraphPage from './pages/SkillGraphPage.vue';
 import DataCenterPage from './pages/DataCenterPage.vue';
 import ProjectAssetsPage from './pages/ProjectAssetsPage.vue';
+import CareerMemoryPage from './pages/CareerMemoryPage.vue';
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', name: 'dashboard', component: DashboardPage },
     { path: '/career-agent', name: 'career-agent', component: CareerAgentPage },
+    { path: '/career-memory', name: 'career-memory', component: CareerMemoryPage },
     { path: '/knowledge', name: 'knowledge', component: KnowledgePage },
     { path: '/profile', name: 'profile', component: ProfilePage },
     { path: '/jobs', name: 'jobs', component: JobsPage },

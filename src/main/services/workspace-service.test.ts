@@ -418,12 +418,17 @@ describe('WorkspaceService', () => {
     });
     const plan = await service.saveCareerSearchPlan({ title: '杭州云原生', goal: '找杭州云原生技术支持', cities: ['杭州'], keywords: ['云原生'], excludeKeywords: [], platforms: [], jobTypes: [], remotePreference: 'any', hardConstraints: [], softPreferences: [] });
     const run = await service.runCareerSearchPlan(plan.id);
-    const memory = await service.saveCareerMemory({ type: 'preference', content: '优先考虑技术支持岗位', tags: ['偏好'] });
+    const memory = await service.saveCareerMemory({
+      type: 'preference', content: '优先考虑技术支持岗位', tags: ['偏好'],
+      sourceSessionId: 'career-companion-1', evidenceIds: ['project-evidence-1']
+    });
     const company = await service.saveCompanyWatch({ name: '示例云科技', careerUrl: 'https://careers.example.com', priority: 'focus' });
     const checked = await service.validateCompanyWatch(company.id);
 
     expect(run.matchedJobIds).toHaveLength(1);
     expect(memory.tags).toContain('偏好');
+    expect(memory.sourceSessionId).toBe('career-companion-1');
+    expect(memory.evidenceIds).toEqual(['project-evidence-1']);
     expect(checked.openJobs).toBe(1);
     expect(checked.lastCheckedAt).toBeTruthy();
   });

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import {
   BookOpenText,
   BrainCircuit,
+  BrainCog,
   Building2,
   Database,
   FileSearch,
@@ -28,6 +29,7 @@ const navItems = [
   { to: '/', label: '工作台', icon: House },
   { to: '/career-agent', label: '求职 Agent', icon: BriefcaseBusiness },
   { to: '/profile', label: '职业档案', icon: UserRound },
+  { to: '/career-memory', label: '职业记忆', icon: BrainCog },
   { to: '/job-sync', label: '岗位中心', icon: Radar },
   { to: '/job-insights', label: '岗位洞察', icon: ChartNoAxesCombined },
   { to: '/jobs', label: '岗位分析', icon: FileSearch },

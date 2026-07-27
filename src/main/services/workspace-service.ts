@@ -687,6 +687,7 @@ export class WorkspaceService {
       const existing = existingIndex >= 0 ? draft.careerMemory[existingIndex] : undefined;
       const entity: CareerMemoryItem = {
         id: existing?.id ?? randomUUID(), type: valid.type ?? 'note', content: valid.content, tags: valid.tags ?? [],
+        sourceSessionId: valid.sourceSessionId, evidenceIds: valid.evidenceIds ?? [],
         createdAt: existing?.createdAt ?? now, updatedAt: now
       };
       if (existingIndex >= 0) draft.careerMemory[existingIndex] = entity;

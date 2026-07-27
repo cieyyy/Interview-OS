@@ -6,6 +6,7 @@ describe('primary navigation state', () => {
     ['/', {}, '/'],
     ['/coach', {}, '/coach'],
     ['/career-agent', {}, '/career-agent'],
+    ['/career-memory', {}, '/career-memory'],
     ['/reports', {}, '/coach'],
     ['/profile', {}, '/profile'],
     ['/profile', { tab: 'projects' }, '/projects'],

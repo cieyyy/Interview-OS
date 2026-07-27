@@ -429,6 +429,8 @@ export interface CareerMemoryItem extends BaseEntity {
   type: CareerMemoryType;
   content: string;
   tags: string[];
+  sourceSessionId?: EntityId;
+  evidenceIds?: EntityId[];
 }
 
 export interface CareerMemoryInput {
@@ -436,6 +438,32 @@ export interface CareerMemoryInput {
   type?: CareerMemoryType;
   content: string;
   tags?: string[];
+  sourceSessionId?: EntityId;
+  evidenceIds?: EntityId[];
+}
+
+export interface CareerContextEvidence {
+  id: EntityId;
+  kind: 'project' | 'knowledge' | 'resume' | 'training';
+  title: string;
+  summary: string;
+}
+
+export interface CareerContextOverview {
+  generatedAt: ISODateString;
+  headline: string;
+  targetRoles: string[];
+  strengths: string[];
+  preferences: string[];
+  gaps: string[];
+  evidence: CareerContextEvidence[];
+  counts: {
+    projects: number;
+    knowledge: number;
+    resumes: number;
+    trainingSessions: number;
+    memories: number;
+  };
 }
 
 export type CompanyWatchStatus = 'watching' | 'paused';
@@ -539,7 +567,8 @@ export type CoachMode =
   | 'technical-qa'
   | 'resume-follow-up'
   | 'jd-analysis'
-  | 'english-interview';
+  | 'english-interview'
+  | 'career-companion';
 
 export interface CoachMessage {
   id: EntityId;
@@ -552,6 +581,7 @@ export interface CoachSession extends BaseEntity {
   mode: CoachMode;
   title: string;
   status: 'active' | 'completed';
+  pinned?: boolean;
   targetJobId?: EntityId;
   resumeId?: EntityId;
   projectIds: EntityId[];
@@ -573,6 +603,7 @@ export interface ProviderConfig {
   name: string;
   baseUrl: string;
   model: string;
+  authMode?: 'api-key' | 'none';
   enabled: boolean;
   hasSecret: boolean;
 }
@@ -874,11 +905,30 @@ export interface TrainingCoachResult {
   source: 'ai' | 'local';
 }
 
+export interface CareerMemorySuggestion {
+  type: CareerMemoryType;
+  content: string;
+  tags: string[];
+  evidenceIds: EntityId[];
+}
+
+export interface CareerCompanionInput {
+  message: string;
+}
+
+export interface CareerCompanionResult {
+  session: CoachSession;
+  reply: string;
+  memorySuggestions: CareerMemorySuggestion[];
+  source: 'ai' | 'local';
+}
+
 export interface ProviderInput {
   kind: ProviderConfig['kind'];
   name: string;
   baseUrl: string;
   model: string;
+  authMode?: 'api-key' | 'none';
   apiKey?: string;
   enabled: boolean;
 }

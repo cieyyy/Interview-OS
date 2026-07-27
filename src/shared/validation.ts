@@ -380,7 +380,9 @@ export function validateCareerMemoryInput(input: CareerMemoryInput): CareerMemor
     id: input.id ? cleanText(input.id, '记忆 ID', 80) : undefined,
     type: input.type ?? 'note',
     content: cleanText(input.content, '记忆内容', 5_000),
-    tags: cleanTags(input.tags)
+    tags: cleanTags(input.tags),
+    sourceSessionId: input.sourceSessionId ? cleanText(input.sourceSessionId, '来源会话 ID', 80) : undefined,
+    evidenceIds: cleanEntityIds(input.evidenceIds)
   };
 }
 
@@ -486,6 +488,7 @@ export function validateProviderInput(input: ProviderInput): ProviderInput {
     name: cleanText(input.name, 'Provider 名称', 100),
     baseUrl: validateHttpUrl(input.baseUrl, 'Base URL'),
     model: cleanText(input.model, '模型名称', 160, input.kind === 'openai-compatible'),
+    authMode: input.kind === 'dify' ? 'api-key' : input.authMode === 'none' ? 'none' : 'api-key',
     apiKey: input.apiKey ? cleanText(input.apiKey, 'API Key', 10_000) : undefined,
     enabled: Boolean(input.enabled)
   };
@@ -628,13 +631,16 @@ export function validateWorkspaceState(value: unknown): WorkspaceState {
   if (!Array.isArray(state.careerSearchPlans)) state.careerSearchPlans = [];
   if (!Array.isArray(state.careerAgentRuns)) state.careerAgentRuns = [];
   if (!Array.isArray(state.careerMemory)) state.careerMemory = [];
+  for (const memory of state.careerMemory) memory.evidenceIds ??= [];
   if (!Array.isArray(state.companyWatches)) state.companyWatches = [];
   if (!Array.isArray(state.coachSessions)) state.coachSessions = [];
+  for (const session of state.coachSessions) session.pinned ??= session.mode === 'career-companion';
   if (!Array.isArray(state.migrationHistory)) state.migrationHistory = [];
   if (!Array.isArray(state.obsidianSyncIndex)) state.obsidianSyncIndex = [];
   if (!Array.isArray(state.obsidianSyncConflicts)) state.obsidianSyncConflicts = [];
   if (!Array.isArray(state.obsidianSyncRuns)) state.obsidianSyncRuns = [];
   if (!state.settings.jobSyncToken) state.settings.jobSyncToken = crypto.randomUUID();
+  if (state.settings.provider) state.settings.provider.authMode ??= 'api-key';
   state.settings.obsidian = validateObsidianSettingsInput(
     state.settings.obsidian ?? {},
     createDefaultObsidianSettings()

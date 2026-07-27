@@ -1,4 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import type {
+  CareerCompanionInput,
+  CareerCompanionResult,
+  CareerMemorySuggestion,
   ConnectionResult,
   DocumentImportTarget,
   ProviderConfig,
@@ -6,6 +10,7 @@ import type {
   TrainingCoachInput,
   TrainingCoachResult
 } from '../../shared/domain';
+import { buildCareerContextOverview } from '../../shared/career-context';
 import { diagnosePressureAnswer, generateRecommendedAnswer, scoreAnswer } from '../../shared/training-engine';
 import { validateProviderInput } from '../../shared/validation';
 import type { AIProvider, CompletionRequest, CompletionResponse } from '../connectors/ai-provider';
@@ -31,6 +36,7 @@ export class ProviderService {
       name: valid.name,
       baseUrl: valid.baseUrl,
       model: valid.model,
+      authMode: valid.authMode ?? 'api-key',
       enabled: valid.enabled,
       hasSecret
     };
@@ -43,17 +49,90 @@ export class ProviderService {
   async testConnection(): Promise<ConnectionResult> {
     const config = this.repository.getState().settings.provider;
     if (!config?.enabled) return { ok: false, message: '尚未启用 AI Provider' };
-    const apiKey = await this.secrets.get(SECRET_NAME);
-    if (!apiKey) return { ok: false, message: '尚未保存 API Key' };
-    return this.createProvider(config).testConnection(apiKey);
+    const apiKey = config.authMode === 'none' ? '' : await this.secrets.get(SECRET_NAME);
+    if (config.authMode !== 'none' && !apiKey) return { ok: false, message: '尚未保存 API Key' };
+    return this.createProvider(config).testConnection(apiKey ?? '');
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
     const config = this.repository.getState().settings.provider;
     if (!config?.enabled) throw new Error('需要先在设置中启用 AI Provider');
-    const apiKey = await this.secrets.get(SECRET_NAME);
-    if (!apiKey) throw new Error('需要先安全保存 API Key');
-    return this.createProvider(config).complete(request, apiKey);
+    const apiKey = config.authMode === 'none' ? '' : await this.secrets.get(SECRET_NAME);
+    if (config.authMode !== 'none' && !apiKey) throw new Error('需要先安全保存 API Key');
+    return this.createProvider(config).complete(request, apiKey ?? '');
+  }
+
+  async careerCompanion(input: CareerCompanionInput): Promise<CareerCompanionResult> {
+    const message = String(input?.message ?? '').trim().slice(0, 20_000);
+    if (!message) throw new Error('请输入要和职业陪练讨论的内容');
+    const state = this.repository.getState();
+    const context = buildCareerContextOverview(state);
+    const existing = state.coachSessions.find((item) => item.mode === 'career-companion' && item.pinned)
+      ?? state.coachSessions.find((item) => item.mode === 'career-companion');
+    const recentMessages = existing?.messages.slice(-16) ?? [];
+    const config = state.settings.provider;
+    const apiKey = config?.authMode === 'none' ? '' : await this.secrets.get(SECRET_NAME);
+    let reply = this.localCareerReply(message, context);
+    let memorySuggestions: CareerMemorySuggestion[] = [];
+    let source: CareerCompanionResult['source'] = 'local';
+
+    if (config?.enabled && (config.authMode === 'none' || apiKey)) {
+      try {
+        const response = await this.createProvider(config).complete({
+          system: [
+            '你是用户长期固定的职业陪练，帮助用户求职定位、复盘经历、准备简历和面试。',
+            '只能使用提供的职业上下文和用户明确表达的事实，不得编造公司、项目、职责、数字或结果。',
+            '先直接回答用户，再给出具体下一步。只有具备长期价值的新事实、偏好、反馈或决定才可提出记忆建议。',
+            '返回严格 JSON，不要使用 Markdown 代码围栏。'
+          ].join(''),
+          prompt: [
+            `职业总览：${JSON.stringify(context)}`,
+            `最近会话：${JSON.stringify(recentMessages)}`,
+            `用户消息：${message}`,
+            '返回格式：{"reply":"给用户的回复","memorySuggestions":[{"type":"profile|preference|feedback|decision|note","content":"长期有效且不重复的事实","tags":["标签"],"evidenceIds":["相关证据ID"]}]}。',
+            'memorySuggestions 最多 3 条；如果没有值得长期保存的内容，返回空数组。'
+          ].join('\n')
+        }, apiKey ?? '');
+        const parsed = this.parseCareerCompanionResponse(response.text, new Set(context.evidence.map((item) => item.id)));
+        reply = parsed.reply;
+        memorySuggestions = parsed.memorySuggestions;
+        source = 'ai';
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : '未知错误';
+        reply = `${reply}\n\n远程模型暂不可用：${reason}`;
+      }
+    }
+
+    const now = new Date().toISOString();
+    const session = await this.repository.update((draft) => {
+      let target = draft.coachSessions.find((item) => item.mode === 'career-companion' && item.pinned)
+        ?? draft.coachSessions.find((item) => item.mode === 'career-companion');
+      if (!target) {
+        target = {
+          id: randomUUID(),
+          mode: 'career-companion',
+          title: '我的职业陪练',
+          status: 'active',
+          pinned: true,
+          projectIds: [],
+          messages: [],
+          answers: [],
+          createdAt: now,
+          updatedAt: now
+        };
+        draft.coachSessions.unshift(target);
+      }
+      target.pinned = true;
+      target.status = 'active';
+      target.messages.push(
+        { id: randomUUID(), role: 'user', content: message, createdAt: now },
+        { id: randomUUID(), role: 'coach', content: reply, createdAt: now }
+      );
+      target.messages = target.messages.slice(-200);
+      target.updatedAt = now;
+      return target;
+    });
+    return { session, reply, memorySuggestions, source };
   }
 
   async coach(input: TrainingCoachInput): Promise<TrainingCoachResult> {
@@ -88,8 +167,8 @@ export class ProviderService {
     };
 
     const config = state.settings.provider;
-    const apiKey = await this.secrets.get(SECRET_NAME);
-    if (!config?.enabled || !apiKey) return local;
+    const apiKey = config?.authMode === 'none' ? '' : await this.secrets.get(SECRET_NAME);
+    if (!config?.enabled || (config.authMode !== 'none' && !apiKey)) return local;
 
     try {
       const response = await this.createProvider(config).complete({
@@ -99,7 +178,7 @@ export class ProviderService {
         prompt: language === 'en-US'
           ? `Target company and role: ${JSON.stringify(job ? { company: job.company, title: job.title, jd: job.rawText } : null)}\nCandidate profile: ${JSON.stringify(state.profile)}\nVerified project evidence: ${JSON.stringify(project ?? null)}\nPrevious rounds (do not repeat answered questions): ${JSON.stringify(previousRounds)}\nCurrent round: ${round}/${session.maxRounds ?? session.questions.length}\nQuestion: ${currentQuestion.text}\nCandidate answer: ${answer || '(not answered yet)'}\nDiagnose: evidence gaps, logic/expression flaws, the strongest interviewer challenge, a STAR answer using only supplied facts, whether the resume should be updated, and one non-repeated follow-up. Translate supplied Chinese source facts into natural English without changing their meaning. The JSON values must contain English only and no Chinese characters. Unknown facts must be written as [CANDIDATE MUST ADD EVIDENCE]. If this is the final round, also include a sessionSummary with 3 strengths, 3 high-risk gaps, 5 practice questions, resume suggestions, and a final checklist. Return only JSON: {"feedback":"...","recommendedAnswer":"...","followUpQuestion":"...","diagnosis":{"evidenceGaps":["..."],"logicIssues":["..."],"interviewerChallenge":"...","starAnswer":"...","resumeUpdateNeeded":true,"resumeSuggestion":"..."},"sessionSummary":{"coreStrengths":[],"highRiskGaps":[],"practiceQuestions":[],"resumeSuggestions":[],"checklist":[]}}.`
           : `目标公司与岗位：${JSON.stringify(job ? { company: job.company, title: job.title, jd: job.rawText } : null)}\n候选人档案：${JSON.stringify(state.profile)}\n已核实项目证据：${JSON.stringify(project ?? null)}\n此前轮次（不得重复已经回答充分的问题）：${JSON.stringify(previousRounds)}\n当前轮次：${round}/${session.maxRounds ?? session.questions.length}\n当前问题：${currentQuestion.text}\n候选人回答：${answer || '（尚未回答）'}\n请依次诊断：证据不足、逻辑和表达漏洞、面试官最可能的质疑；仅根据已提供事实整理 STAR 回答；判断是否需要同步修改简历并给出具体建议；最后只生成一个不重复的动态追问。任何未知事实统一写“【需要本人补充】”。如果是最后一轮，同时输出 sessionSummary：核心竞争力 3 项、高风险漏洞 3 项、最需练习问题 5 个、简历修改建议和面试前清单。只返回 JSON：{"feedback":"...","recommendedAnswer":"...","followUpQuestion":"...","diagnosis":{"evidenceGaps":["..."],"logicIssues":["..."],"interviewerChallenge":"...","starAnswer":"...","resumeUpdateNeeded":true,"resumeSuggestion":"..."},"sessionSummary":{"coreStrengths":[],"highRiskGaps":[],"practiceQuestions":[],"resumeSuggestions":[],"checklist":[]}}。`
-      }, apiKey);
+      }, apiKey ?? '');
       const jsonText = response.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       const parsed = JSON.parse(jsonText) as Partial<TrainingCoachResult>;
       if (language === 'en-US' && /[\u3400-\u9fff]/u.test(JSON.stringify(parsed))) return local;
@@ -160,5 +239,40 @@ export class ProviderService {
 
   private createProvider(config: ProviderConfig): AIProvider {
     return config.kind === 'dify' ? new DifyProvider(config) : new OpenAICompatibleProvider(config);
+  }
+
+  private localCareerReply(message: string, context: ReturnType<typeof buildCareerContextOverview>): string {
+    const directions = context.targetRoles.length ? context.targetRoles.join('、') : '尚未明确目标岗位';
+    const strengths = context.strengths.slice(0, 4).join('、') || '尚未整理核心能力';
+    return `我已结合当前职业档案记录这次讨论。当前目标方向是${directions}，可优先使用的能力证据包括${strengths}。针对“${message.slice(0, 120)}”，请先补充一个具体目标岗位或真实经历，我会继续按面试官视角追问。要获得完整模型回复，请在设置中启用一个云端模型或本地 Ollama。`;
+  }
+
+  private parseCareerCompanionResponse(
+    value: string,
+    validEvidenceIds: Set<string>
+  ): Pick<CareerCompanionResult, 'reply' | 'memorySuggestions'> {
+    const clean = value.replace(/^```(?:json)?\s*/iu, '').replace(/\s*```$/u, '').trim();
+    let parsed: { reply?: unknown; memorySuggestions?: unknown };
+    try {
+      parsed = JSON.parse(clean) as typeof parsed;
+    } catch {
+      return { reply: clean.slice(0, 20_000), memorySuggestions: [] };
+    }
+    const reply = String(parsed.reply ?? '').trim().slice(0, 20_000);
+    if (!reply) throw new Error('模型没有返回有效职业陪练回复');
+    const allowedTypes = new Set(['profile', 'preference', 'feedback', 'decision', 'note']);
+    const memorySuggestions = (Array.isArray(parsed.memorySuggestions) ? parsed.memorySuggestions : [])
+      .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
+      .map((item) => ({
+        type: allowedTypes.has(String(item.type)) ? String(item.type) as CareerMemorySuggestion['type'] : 'note',
+        content: String(item.content ?? '').trim().slice(0, 5_000),
+        tags: Array.isArray(item.tags) ? [...new Set(item.tags.map(String).map((tag) => tag.trim()).filter(Boolean))].slice(0, 12) : [],
+        evidenceIds: Array.isArray(item.evidenceIds)
+          ? [...new Set(item.evidenceIds.map(String).filter((id) => validEvidenceIds.has(id)))].slice(0, 20)
+          : []
+      }))
+      .filter((item) => item.content)
+      .slice(0, 3);
+    return { reply, memorySuggestions };
   }
 }
