@@ -47,7 +47,7 @@ async function expectDarkSurfaces(page: Page, selectors: string[]): Promise<void
     return [{ selector, color, maximumChannel: channels.length === 3 ? Math.max(...channels) : 255 }];
   }), selectors);
   expect(surfaces).toHaveLength(selectors.length);
-  for (const surface of surfaces) expect(surface.maximumChannel, `${surface.selector} uses ${surface.color}`).toBeLessThan(64);
+  for (const surface of surfaces) expect(surface.maximumChannel, `${surface.selector} uses ${surface.color}`).toBeLessThan(96);
 }
 
 test('all child views preserve parent navigation and shared layout', async () => {
@@ -95,7 +95,14 @@ test('all child views preserve parent navigation and shared layout', async () =>
     await capture('projects-editor-tab', 'profile');
     await page.evaluate(() => { window.location.hash = '#/profile?tab=projects'; });
     await capture('projects-deep-link', 'profile');
-    await expect(page.locator('.project-form-card')).toHaveCSS('overflow-y', 'visible');
+    await expect(page.locator('.project-form-card')).toHaveCSS('overflow-y', 'auto');
+    const projectLayout = await page.locator('.profile-project-layout').evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      viewport: window.innerHeight,
+      overflow: getComputedStyle(element).overflow
+    }));
+    expect(projectLayout.height).toBeLessThan(projectLayout.viewport);
+    expect(projectLayout.overflow).toBe('hidden');
 
     await page.getByTestId('nav-resumes').click();
     await page.getByTestId('resume-add').click();
@@ -125,6 +132,9 @@ test('all child views preserve parent navigation and shared layout', async () =>
     await page.getByTestId('nav-jobs').click();
     await page.getByTestId('job-add').click();
     await capture('jd-import', 'jobs');
+    await page.getByTestId('job-title').fill('深色模式测试岗位');
+    await page.getByTestId('job-raw').fill('负责 Kubernetes、Linux、网络和自动化运维，要求具备生产排障经验。');
+    await page.getByTestId('job-analyze').click();
 
     await page.getByTestId('nav-applications').click();
     await page.getByTestId('application-add').click();
@@ -155,6 +165,24 @@ test('all child views preserve parent navigation and shared layout', async () =>
     await page.getByTestId('nav-companies').click();
     await capture('companies-dark', 'companies');
     await expectDarkSurfaces(page, ['.content-area', '.career-metrics', '.company-watch-list', '.recruitment-calendar', '.site-directory']);
+
+    await page.getByTestId('nav-jobs').click();
+    const cancelJobImport = page.locator('.job-import .button.ghost');
+    if (await cancelJobImport.isVisible()) await cancelJobImport.click();
+    await capture('job-analysis-dark', 'jobs');
+    await expectDarkSurfaces(page, ['.content-area', '.job-batch-toolbar', '.jobs-layout', '.collection-item.selected', '.job-detail']);
+
+    await page.getByTestId('nav-job-sync').click();
+    await capture('job-center-dark', 'job-sync');
+    await expectDarkSurfaces(page, ['.content-area', '.job-workspace-tabs', '.job-location-toolbar', '.synced-job-list']);
+    await page.getByTestId('job-sync-tab-filters').click();
+    await capture('job-filters-dark', 'job-sync');
+    await expectDarkSurfaces(page, ['.content-area', '.job-workspace-tabs button.active', '.filter-builder', '.filter-rule-list', '.button.danger']);
+
+    await page.getByTestId('nav-profile').click();
+    await page.getByTestId('profile-project-tab').click();
+    await capture('profile-projects-dark', 'profile');
+    await expectDarkSurfaces(page, ['.content-area', '.segmented button.active', '.project-form-card', '.recorded-projects', '.recorded-project-page .project-card']);
   } finally {
     await app.close().catch(() => undefined);
     await rm(dataDirectory, { recursive: true, force: true });

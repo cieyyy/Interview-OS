@@ -1,10 +1,10 @@
 # Interview OS
 
-> 当前源码版本：0.8.4
+> 当前源码版本：0.8.5
 
 Interview OS 是一款本地优先、AI 增强的桌面职业操作系统。它把岗位发现、JD 分析、能力成长、定向简历、项目经历、AI 面试训练和投递管理组织在同一个本地工作区中。
 
-## v0.8.4 当前能力
+## v0.8.5 当前能力
 
 - 工作台：围绕今日任务、训练、待学习技能、活跃机会和目标岗位组织行动。
 - AI 职业教练：保留一个面试训练入口，通过陪练模式切换模拟面试、项目深挖、技术问答、简历追问、JD 分析和英语面试。
@@ -17,7 +17,8 @@ Interview OS 是一款本地优先、AI 增强的桌面职业操作系统。它�
 - 能力成长：聚焦能力证据和补强路线，不再显示岗位审计与匹配分项。
 - 训练闭环：中英文训练、语音作答、动态压力追问、证据诊断和训练报告。
 - 界面偏好：支持中英文界面偏好、完整近黑主题切换和本机地图服务配置。
-- AI Provider：提供 Sub2API 一键模板，支持 OpenAI 兼容的 `/chat/completions` 与 `/responses` 接口。
+- AI Provider：提供 Sub2API 一键模板，自动规范根地址为 `/v1`，支持 OpenAI 兼容的 `/chat/completions` 与 `/responses` 接口。
+- 自适应模块：长表单和详情面板约束在可视窗口内并独立滚动，避免内容撑破页面布局。
 - 本地安全：原子工作区、备份、Markdown 导出、Electron 安全 IPC 和密钥隔离。
 
 ## 当前边界
@@ -25,7 +26,7 @@ Interview OS 是一款本地优先、AI 增强的桌面职业操作系统。它�
 - 招聘平台 MCP、公司官网监控和外部推送仍需逐连接器验收；浏览器插件已支持列表页识别与详情页补全，但各平台选择器仍需持续维护。
 - 自动沟通和自动投递保持关闭，任何外部写操作必须由用户确认。
 - 高德地图精确距离需要用户自行配置 Web 服务 Key；未配置时使用本地地址规则降级排序。
-- v0.8.4 Windows 安装版和便携版由发布流程生成；首次运行未签名版本前应核对 GitHub Release 资产和 SHA-256。
+- v0.8.5 Windows 安装版和便携版由发布流程生成；首次运行未签名版本前应核对 GitHub Release 资产和 SHA-256。
 
 
 ## 开发命令
@@ -74,6 +75,7 @@ python scripts/build_product_pdf.py
 - [v0.8.2 Windows 发布说明](./docs/releases/v0.8.2.md)
 - [v0.8.3 Windows 发布说明](./docs/releases/v0.8.3.md)
 - [v0.8.4 Windows 发布说明](./docs/releases/v0.8.4.md)
+- [v0.8.5 Windows 发布说明](./docs/releases/v0.8.5.md)
 - [v0.6.0 测试报告](./docs/testing/test-report-v0.6.0.md)
 - [v0.6.0 界面截图与视觉审计](./docs/screenshots/v0.6.0/README.md)
 - [使用指南](./docs/user-guide.md)

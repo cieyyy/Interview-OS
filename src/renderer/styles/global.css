@@ -223,15 +223,15 @@ button.task-row:hover { color: var(--green-dark); background: #f4f8f7; }
 .form-card { padding: 23px; }
 .form-card form { display: flex; flex-direction: column; gap: 14px; }
 .form-card h3 { margin: 0 0 16px; }
-.profile-project-layout { display: grid; grid-template-columns: 420px minmax(0,1fr); gap: var(--space-5); align-items: start; }
-.project-form-card { overflow: visible; }
+.profile-project-layout { display: grid; grid-template-columns: minmax(360px,420px) minmax(0,1fr); gap: var(--space-5); align-items: stretch; height: calc(100vh - 198px); min-height: 520px; max-width: 100%; overflow: hidden; }
+.project-form-card { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .project-form-title, .project-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .project-form-title h3 { margin: 0 0 var(--space-4); font-size: var(--font-lg); }
 .project-card-heading > div { min-width: 0; }
 .recorded-projects { min-width: 0; }
-.recorded-projects { display: flex; min-height: 560px; flex-direction: column; }
+.recorded-projects { display: flex; min-height: 0; max-height: 100%; flex-direction: column; overflow: hidden; }
 .recorded-project-page { display: flex; min-height: 0; flex: 1; flex-direction: column; }
-.recorded-project-page .project-card { min-height: 430px; }
+.recorded-project-page .project-card { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; }
 .project-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 48px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); }
 .project-pagination span { min-width: 70px; text-align: center; color: var(--muted); }
 .project-pagination strong { color: var(--ink); }
@@ -1770,6 +1770,36 @@ html[data-theme="dark"] .icon-command { color: #e2e8ef; background: #20252b; bor
 html[data-theme="dark"] .button.secondary:hover,
 html[data-theme="dark"] .button.ghost:hover,
 html[data-theme="dark"] .icon-command:hover { background: #2a3038; }
+html[data-theme="dark"] .segmented button.active,
+html[data-theme="dark"] .job-workspace-tabs button.active { color: #f5f7fa; background: #263b50; box-shadow: none; }
+html[data-theme="dark"] .button.danger { color: #ff9b92; background: #2b1b1c; border-color: #75413b; }
+html[data-theme="dark"] .button.danger:hover { color: #ffd3cf; background: #3a2223; border-color: #9b5149; }
+
+html[data-theme="dark"] .job-batch-toolbar,
+html[data-theme="dark"] .job-location-toolbar,
+html[data-theme="dark"] .filter-rule-list,
+html[data-theme="dark"] .active-filter-banner,
+html[data-theme="dark"] .sync-log-table > header,
+html[data-theme="dark"] .job-detail-section dl > div,
+html[data-theme="dark"] .job-score-stack > div,
+html[data-theme="dark"] .compare-labels { color: var(--color-foreground); background: #171a1f; border-color: var(--color-border); box-shadow: none; }
+html[data-theme="dark"] .collection-item.selected,
+html[data-theme="dark"] .collection-item:hover,
+html[data-theme="dark"] .filter-rule-list > article.selected,
+html[data-theme="dark"] .filter-rule-list > article:hover { color: var(--color-foreground); background: #242a31; border-color: var(--color-border-strong); }
+html[data-theme="dark"] .filter-rule-list > header,
+html[data-theme="dark"] .filter-rule-list > article,
+html[data-theme="dark"] .requirement-row { border-color: var(--color-border); }
+html[data-theme="dark"] .rule-card-button b { color: var(--color-primary); background: var(--color-primary-soft); }
+html[data-theme="dark"] .job-location-toolbar > small,
+html[data-theme="dark"] .rule-card-button small { color: var(--color-secondary); }
+
+.content-area > section,
+.content-area :where(.panel, .workspace-layout, .jobs-layout, .agent-workspace, .resume-studio-layout, .filter-builder-layout, .company-layout, .skill-graph-layout) { min-width: 0; max-width: 100%; }
+
+@media (max-height: 760px) {
+  .profile-project-layout { height: calc(100vh - 172px); min-height: 440px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

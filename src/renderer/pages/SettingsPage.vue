@@ -15,7 +15,20 @@ const cleanupOpen = ref(false);
 const cleanupText = ref('');
 const cleanupBackupPath = ref('');
 watchEffect(() => { const current = store.workspace?.settings.provider; if (current) Object.assign(provider, current, { apiKey: '' }); });
-async function save(): Promise<void> { await saveProvider(provider); }
+function normalizeOpenAiBaseUrl(value: string): string {
+  if (provider.kind !== 'openai-compatible') return value;
+  try {
+    const url = new URL(value);
+    if (!url.pathname || url.pathname === '/') url.pathname = '/v1';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return value;
+  }
+}
+async function save(): Promise<void> {
+  provider.baseUrl = normalizeOpenAiBaseUrl(provider.baseUrl);
+  await saveProvider(provider);
+}
 async function test(): Promise<void> { const result = await testProvider(); if (result) testMessage.value = result.message + (result.latencyMs ? ` · ${result.latencyMs}ms` : ''); }
 function applySub2ApiTemplate(): void {
   Object.assign(provider, {

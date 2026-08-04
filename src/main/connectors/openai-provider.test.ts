@@ -69,4 +69,32 @@ describe('OpenAICompatibleProvider', () => {
       expect.objectContaining({ type: 'input_image', image_url: 'data:image/png;base64,YWJj' })
     ]));
   });
+
+  it('adds /v1 when an OpenAI-compatible root URL is configured', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: 'OK' } }]
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const provider = new OpenAICompatibleProvider({
+      kind: 'openai-compatible', name: 'Sub2API', baseUrl: 'http://127.0.0.1:3452',
+      model: 'test-model', enabled: true, hasSecret: true
+    });
+
+    await provider.testConnection('test-key');
+
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:3452/v1/chat/completions', expect.any(Object));
+  });
+
+  it('reports an actionable error when the gateway returns HTML', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<!doctype html><title>Gateway</title>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' }
+    })));
+    const provider = new OpenAICompatibleProvider({
+      kind: 'openai-compatible', name: 'Sub2API', baseUrl: 'https://example.test',
+      model: 'test-model', enabled: true, hasSecret: true
+    });
+
+    await expect(provider.testConnection('test-key')).rejects.toThrow('模型服务返回了 HTML 页面');
+  });
 });
