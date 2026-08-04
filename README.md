@@ -1,10 +1,10 @@
 # Interview OS
 
-> 当前源码版本：0.8.2
+> 当前源码版本：0.8.3
 
 Interview OS 是一款本地优先、AI 增强的桌面职业操作系统。它把岗位发现、JD 分析、能力成长、定向简历、项目经历、AI 面试训练和投递管理组织在同一个本地工作区中。
 
-## v0.8.2 当前能力
+## v0.8.3 当前能力
 
 - 工作台：围绕今日任务、训练、待学习技能、活跃机会和目标岗位组织行动。
 - AI 职业教练：保留一个面试训练入口，通过陪练模式切换模拟面试、项目深挖、技术问答、简历追问、JD 分析和英语面试。
@@ -71,6 +71,7 @@ python scripts/build_product_pdf.py
 - [v0.8.0 发布说明](./docs/releases/v0.8.0.md)
 - [v0.8.1 macOS 发布说明](./docs/releases/v0.8.1.md)
 - [v0.8.2 Windows 发布说明](./docs/releases/v0.8.2.md)
+- [v0.8.3 Windows 发布说明](./docs/releases/v0.8.3.md)
 - [v0.6.0 测试报告](./docs/testing/test-report-v0.6.0.md)
 - [v0.6.0 界面截图与视觉审计](./docs/screenshots/v0.6.0/README.md)
 - [使用指南](./docs/user-guide.md)

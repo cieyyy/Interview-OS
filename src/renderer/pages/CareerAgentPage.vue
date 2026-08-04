@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
-import { Bot, BrainCircuit, CheckCircle2, CircleAlert, FileUser, MessageCircleMore, MicVocal, Play, Search, Send, Sparkles, Trash2, X } from '@lucide/vue';
+import { computed, reactive, ref, watch } from 'vue';
+import { Bot, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, CircleAlert, FileUser, MessageCircleMore, MicVocal, Play, Search, Send, Sparkles, Trash2, X } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 import type { CareerMemoryType, SyncedJob } from '../../shared/domain';
 import { buildCareerAnswer, parseCareerGoal } from '../../shared/career-agent-engine';
@@ -14,6 +14,7 @@ const selectedPlanId = ref('');
 const question = ref('优先投哪个？');
 const answer = ref('');
 const deletePlanId = ref('');
+const jobPage = ref(0);
 const mood = ref<'steady' | 'tired' | 'anxious'>('steady');
 const memoryDraft = reactive<{ type: CareerMemoryType; content: string; tags: string }>({ type: 'preference', content: '', tags: '' });
 
@@ -26,11 +27,17 @@ const matchedJobs = computed(() => {
   const ids = latestRun.value?.matchedJobIds ?? [];
   return (store.workspace?.syncedJobs ?? []).filter((item) => ids.includes(item.id));
 });
+const jobsPerPage = 3;
+const jobPageCount = computed(() => Math.max(1, Math.ceil(matchedJobs.value.length / jobsPerPage)));
+const visibleMatchedJobs = computed(() => matchedJobs.value.slice(jobPage.value * jobsPerPage, (jobPage.value + 1) * jobsPerPage));
 const moodCopy = computed(() => ({
   steady: '今天按计划推进：先筛 3 个高匹配岗位，再完成 1 份定向简历。',
   tired: '先减少决策量。今天只处理最高匹配的 1 个岗位，其余自动留在队列里。',
   anxious: '先把不确定性拆开：岗位是否真实、是否匹配、下一步做什么，逐项确认即可。'
 }[mood.value]));
+
+watch(() => latestRun.value?.id, () => { jobPage.value = 0; });
+watch(jobPageCount, (count) => { if (jobPage.value >= count) jobPage.value = count - 1; });
 
 async function createAndRun(): Promise<void> {
   if (!store.workspace || !goal.value.trim()) return;
@@ -107,7 +114,14 @@ async function openJobAction(item: SyncedJob, target: 'resume' | 'training'): Pr
           <button type="button" class="agent-plan-select" @click="selectedPlanId = plan.id">
             <Search :size="15" /><span><strong>{{ plan.title }}</strong><small>{{ plan.cities.join('、') || '不限城市' }} · {{ plan.keywords.slice(0, 2).join('、') || '综合岗位' }}</small></span>
           </button>
-          <button class="icon-command danger" type="button" title="删除计划" :aria-label="`删除计划 ${plan.title}`" @click="deletePlanId = plan.id"><Trash2 :size="15" /></button>
+          <div class="agent-plan-delete">
+            <button class="icon-command danger" type="button" title="删除计划" :aria-label="`删除计划 ${plan.title}`" :aria-expanded="deletePlanId === plan.id" @click.stop="deletePlanId = deletePlanId === plan.id ? '' : plan.id"><Trash2 :size="15" /></button>
+            <section v-if="deletePlanId === plan.id" class="plan-delete-popover" role="alertdialog" aria-labelledby="delete-plan-title">
+              <header><strong id="delete-plan-title">删除这个计划？</strong><button class="icon-command" type="button" title="关闭" @click="deletePlanId = ''"><X :size="14" /></button></header>
+              <p>计划和运行记录会被删除。</p>
+              <footer><button class="button ghost compact" type="button" @click="deletePlanId = ''">取消</button><button class="button danger compact" type="button" data-testid="career-plan-delete-submit" @click="removePlan"><Trash2 :size="14" />删除</button></footer>
+            </section>
+          </div>
         </div>
       </aside>
 
@@ -122,14 +136,16 @@ async function openJobAction(item: SyncedJob, target: 'resume' | 'training'): Pr
             <div v-for="step in latestRun.steps" :key="step.id"><CheckCircle2 v-if="step.status === 'completed'" :size="16" /><CircleAlert v-else :size="16" /><span><strong>{{ step.label }}</strong><small>{{ step.message }}</small></span></div>
           </div>
 
-          <section class="agent-results">
-            <header><div><span class="eyebrow">CURATED JOBS</span><h3>推荐岗位</h3></div><strong>{{ matchedJobs.length }}</strong></header>
-            <article v-for="item in matchedJobs" :key="item.id">
-              <div class="agent-job-score"><strong>{{ item.matchScore }}</strong><small>匹配</small></div>
-              <div><h4>{{ item.title }}</h4><p>{{ item.company || '未识别公司' }} · {{ item.location || '地点未识别' }} · {{ item.salaryRange || '薪资未披露' }}</p><small>{{ item.matchReasons[0] }}</small></div>
-              <div><button class="icon-command" type="button" title="制作定向简历" @click="openJobAction(item, 'resume')"><FileUser :size="16" /></button><button class="icon-command" type="button" title="开始面试训练" @click="openJobAction(item, 'training')"><MicVocal :size="16" /></button></div>
-            </article>
+          <section class="agent-results" data-testid="career-agent-results">
+            <header><div><span class="eyebrow">CURATED JOBS</span><h3>推荐岗位</h3></div><div class="result-page-summary"><strong>{{ matchedJobs.length }}</strong><span>{{ jobPage + 1 }} / {{ jobPageCount }}</span></div></header>
+            <div v-if="matchedJobs.length" class="agent-result-grid">
+              <article v-for="item in visibleMatchedJobs" :key="item.id">
+                <header><div class="agent-job-score"><strong>{{ item.matchScore }}</strong><small>匹配</small></div><div><button class="icon-command" type="button" title="制作定向简历" @click="openJobAction(item, 'resume')"><FileUser :size="16" /></button><button class="icon-command" type="button" title="开始面试训练" @click="openJobAction(item, 'training')"><MicVocal :size="16" /></button></div></header>
+                <div class="agent-job-copy"><h4>{{ item.title }}</h4><p>{{ item.company || '未识别公司' }}</p><small>{{ item.location || '地点未识别' }} · {{ item.salaryRange || '薪资未披露' }}</small><small>{{ item.matchReasons[0] }}</small></div>
+              </article>
+            </div>
             <p v-if="!matchedJobs.length" class="agent-no-results">当前本地职位池没有命中。计划已经保存，真实连接器接入后可直接复用。</p>
+            <footer v-if="matchedJobs.length > jobsPerPage" class="pagination-bar"><button class="icon-command" type="button" title="上一页推荐岗位" :disabled="jobPage === 0" @click="jobPage -= 1"><ChevronLeft :size="16" /></button><span>第 {{ jobPage + 1 }} / {{ jobPageCount }} 页</span><button class="icon-command" type="button" title="下一页推荐岗位" :disabled="jobPage >= jobPageCount - 1" @click="jobPage += 1"><ChevronRight :size="16" /></button></footer>
           </section>
 
           <section class="agent-question-box">
@@ -146,13 +162,6 @@ async function openJobAction(item: SyncedJob, target: 'resume' | 'training'): Pr
         <form @submit.prevent="addMemory"><select v-model="memoryDraft.type" class="input"><option value="preference">偏好</option><option value="profile">真实经历</option><option value="feedback">岗位反馈</option><option value="decision">求职决定</option><option value="note">备注</option></select><textarea v-model="memoryDraft.content" class="input" placeholder="记录以后需要持续使用的信息……"></textarea><input v-model="memoryDraft.tags" class="input" placeholder="标签，用逗号分隔" /><button class="button primary" type="submit">保存记忆</button></form>
         <div class="memory-list"><article v-for="item in memories" :key="item.id"><span>{{ item.type }}</span><p>{{ item.content }}</p><small>{{ item.tags.join(' · ') }}</small></article></div>
       </aside>
-    </div>
-    <div v-if="deletePlanId" class="modal-backdrop" role="presentation" @click.self="deletePlanId = ''">
-      <section class="modal-card compact-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-plan-title">
-        <header><div><span class="eyebrow">DELETE PLAN</span><h3 id="delete-plan-title">删除求职计划？</h3></div><button class="icon-command" type="button" title="关闭" @click="deletePlanId = ''"><X :size="16" /></button></header>
-        <p>计划及其运行记录会被删除，岗位、简历和投递记录不会受影响。</p>
-        <footer><button class="button ghost" type="button" @click="deletePlanId = ''">取消</button><button class="button danger" type="button" data-testid="career-plan-delete-submit" @click="removePlan"><Trash2 :size="15" />确认删除</button></footer>
-      </section>
     </div>
   </section>
 </template>

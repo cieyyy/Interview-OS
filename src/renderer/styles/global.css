@@ -97,6 +97,8 @@ html[data-theme="dark"] .learning-roadmap,
 html[data-theme="dark"] .agent-workspace,
 html[data-theme="dark"] .agent-command-panel,
 html[data-theme="dark"] .career-companion { background: var(--color-surface); color: var(--color-foreground); border-color: var(--color-border); }
+html[data-theme="dark"] .plan-delete-popover { color: var(--color-foreground); background: #181c21; border-color: #75483f; }
+html[data-theme="dark"] .capability-pagination { background: #171b20; }
 html[data-theme="dark"] .input,
 html[data-theme="dark"] input,
 html[data-theme="dark"] textarea,
@@ -1185,6 +1187,13 @@ button.task-row:hover { color: #075ead; background: rgba(225, 240, 255, 0.58); }
 .agent-plan-row:hover, .agent-plan-row.selected { border-color: rgba(8,124,240,.2); background: rgba(255,255,255,.82); }
 .agent-plan-select { display: grid; grid-template-columns: 20px minmax(0,1fr); width: 100%; align-items: start; gap: 8px; padding: 10px 8px; text-align: left; border: 0; color: inherit; background: transparent; }
 .agent-plan-row .icon-command { margin-right: 3px; }
+.agent-plan-delete { position: relative; display: grid; place-items: center; }
+.plan-delete-popover { position: absolute; z-index: 40; top: calc(100% + 7px); right: 2px; width: 238px; padding: 12px; border: 1px solid rgba(184,76,54,.32); background: #fff; box-shadow: 0 14px 34px rgba(27,55,82,.2); }
+.plan-delete-popover::before { position: absolute; top: -6px; right: 12px; width: 10px; height: 10px; border-top: 1px solid rgba(184,76,54,.32); border-left: 1px solid rgba(184,76,54,.32); background: inherit; content: ''; transform: rotate(45deg); }
+.plan-delete-popover header, .plan-delete-popover footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.plan-delete-popover header strong { overflow: visible; font-size: var(--font-sm); white-space: normal; }
+.plan-delete-popover p { margin: 8px 0 11px; color: #677e93; font-size: var(--font-xs); line-height: 1.5; }
+.plan-delete-popover footer { justify-content: flex-end; }
 .agent-plan-list svg { margin-top: 2px; color: var(--blue); }
 .agent-plan-list strong, .agent-plan-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agent-plan-list strong { font-size: var(--font-sm); }
@@ -1208,16 +1217,25 @@ button.task-row:hover { color: #075ead; background: rgba(225, 240, 255, 0.58); }
 .agent-results > header { display: flex; align-items: center; justify-content: space-between; padding: 11px 13px; background: rgba(231,243,254,.62); }
 .agent-results h3 { margin: 2px 0 0; font-size: var(--font-md); }
 .agent-results > header > strong { color: #075ead; font-size: var(--font-xl); }
-.agent-results > article { display: grid; grid-template-columns: 50px minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 12px 13px; border-top: 1px solid rgba(73,118,168,.11); }
+.result-page-summary { display: flex; align-items: baseline; gap: 9px; }
+.result-page-summary strong { color: #075ead; font-size: var(--font-xl); }
+.result-page-summary span { color: #6e8499; font-size: var(--font-xs); font-variant-numeric: tabular-nums; }
+.agent-result-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); min-height: 184px; }
+.agent-result-grid > article { display: flex; min-width: 0; min-height: 184px; flex-direction: column; gap: 11px; padding: 12px; border-top: 1px solid rgba(73,118,168,.11); border-left: 1px solid rgba(73,118,168,.11); }
+.agent-result-grid > article:first-child { border-left: 0; }
+.agent-result-grid > article > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.agent-result-grid > article > header > div:last-child { display: flex; gap: 5px; }
 .agent-job-score { text-align: center; color: #177052; background: rgba(225,245,236,.78); padding: 7px 4px; }
 .agent-job-score strong, .agent-job-score small { display: block; }
 .agent-job-score strong { font-size: var(--font-lg); }
 .agent-job-score small { font-size: var(--font-xs); }
 .agent-results h4 { margin: 0; font-size: var(--font-sm); }
-.agent-results article p { margin: 4px 0; color: #5f7890; font-size: var(--font-xs); }
-.agent-results article > div:nth-child(2) > small { color: #74899e; font-size: var(--font-xs); }
-.agent-results article > div:last-child { display: flex; gap: 6px; }
+.agent-job-copy { min-width: 0; }
+.agent-results article p { margin: 5px 0; overflow: hidden; color: #5f7890; font-size: var(--font-xs); text-overflow: ellipsis; white-space: nowrap; }
+.agent-job-copy > small { display: block; margin-top: 5px; overflow: hidden; color: #74899e; font-size: var(--font-xs); line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
 .agent-no-results { margin: 0; padding: 24px 14px; color: #70869b; font-size: var(--font-sm); text-align: center; }
+.pagination-bar { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 10px; padding: 7px 12px; border-top: 1px solid rgba(73,118,168,.11); color: #607a92; font-size: var(--font-xs); font-variant-numeric: tabular-nums; }
+.pagination-bar .icon-command:disabled { cursor: not-allowed; opacity: .38; }
 .agent-question-box { margin-top: 14px; padding: 13px; border: 1px solid rgba(73,118,168,.16); background: rgba(236,246,255,.54); }
 .agent-question-box > div { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; color: #32668f; }
 .agent-question-box strong, .agent-question-box small { display: block; }
@@ -1297,7 +1315,7 @@ button.task-row:hover { color: #075ead; background: rgba(225, 240, 255, 0.58); }
 .capability-map > header, .learning-roadmap > header { display: flex; align-items: center; justify-content: space-between; padding: 13px 15px; border-bottom: 1px solid rgba(73,118,168,.13); }
 .capability-map h3, .learning-roadmap h3 { margin: 2px 0 0; font-size: var(--font-lg); }
 .capability-map > header svg, .learning-roadmap > header svg { color: var(--blue); }
-.capability-clusters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); min-height: 470px; }
+.capability-clusters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); min-height: 396px; }
 .capability-clusters > section { min-width: 0; border-left: 1px solid rgba(73,118,168,.12); }
 .capability-clusters > section:first-child { border-left: 0; }
 .capability-clusters > section > header { display: flex; align-items: flex-start; gap: 8px; padding: 12px; }
@@ -1314,6 +1332,8 @@ button.task-row:hover { color: #075ead; background: rgba(225, 240, 255, 0.58); }
 .capability-clusters article small { margin-top: 3px; overflow: hidden; color: #74899e; font-size: var(--font-xs); text-overflow: ellipsis; white-space: nowrap; }
 .capability-clusters article b { display: grid; width: 26px; height: 26px; place-items: center; color: #41698b; background: rgba(232,242,251,.78); font-size: var(--font-xs); }
 .capability-clusters section > div > p { margin: 0; padding: 20px 12px; color: #758a9e; font-size: var(--font-xs); }
+.capability-clusters > section > div { min-height: 330px; }
+.capability-pagination { border-top-color: rgba(73,118,168,.14); background: rgba(239,247,254,.48); }
 .skill-analysis-side { display: grid; gap: 14px; }
 .match-dimension-panel, .job-audit-panel { padding: 14px; border: 1px solid rgba(73,118,168,.18); background: rgba(255,255,255,.68); box-shadow: var(--shadow-soft); }
 .match-dimension-panel > header, .job-audit-panel > header { display: flex; align-items: center; gap: 9px; margin-bottom: 13px; }
@@ -1658,6 +1678,8 @@ button.task-row:hover { color: #075ead; background: rgba(225, 240, 255, 0.58); }
   .agent-layout, .agent-workspace, .company-layout, .skill-graph-layout, .data-quality-layout, .push-layout { grid-template-columns: 1fr; }
   .agent-command-actions, .agent-plan-summary { align-items: stretch; flex-direction: column; }
   .agent-plan-list { border-right: 0; border-bottom: 1px solid rgba(73,118,168,.15); }
+  .agent-result-grid { grid-template-columns: 1fr; }
+  .agent-result-grid > article { min-height: 150px; border-left: 0; }
   .agent-step-list { grid-template-columns: 1fr; }
   .agent-step-list > div { border-top: 1px solid rgba(73,118,168,.11); border-left: 0; }
   .career-memory-panel form { grid-template-columns: 1fr; }

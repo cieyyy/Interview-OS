@@ -44,7 +44,13 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     const initialPlanCount = await page.locator('.agent-plan-row').count();
     await page.getByRole('button', { name: /生成计划并运行/ }).click();
     await expect(page.locator('.agent-plan-row')).toHaveCount(initialPlanCount + 1);
+    await expect(page.getByTestId('career-agent-results')).toBeVisible();
+    expect(await page.locator('.agent-result-grid > article').count()).toBeLessThanOrEqual(3);
     await page.getByTitle('删除计划').first().click();
+    await expect(page.locator('.plan-delete-popover')).toBeVisible();
+    await expect(page.locator('.modal-backdrop')).toHaveCount(0);
+    await mkdir(path.resolve('artifacts'), { recursive: true });
+    await page.screenshot({ path: path.resolve('artifacts', 'career-plan-delete-popover.png'), fullPage: true });
     await page.getByTestId('career-plan-delete-submit').click();
     await expect(page.locator('.agent-plan-row')).toHaveCount(initialPlanCount);
 
@@ -112,7 +118,15 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await page.getByTestId('job-analyze').click();
     await expect(page.getByTestId('job-detail')).toContainText('Kubernetes');
 
+    await page.getByTestId('nav-skill-graph').click();
+    await expect(page.getByTestId('skill-map-pagination')).toBeVisible();
+    await expect(page.getByTestId('nav-skill-graph')).toHaveClass(/active/);
+    await expect(page.getByTestId('nav-jobs')).not.toHaveClass(/active/);
+    expect(await page.locator('.capability-clusters article').count()).toBeLessThanOrEqual(18);
+    await page.screenshot({ path: path.resolve('artifacts', 'skill-map-paged.png'), fullPage: true });
+
     await page.getByTestId('nav-coach').click();
+    await expect(page.locator('.page-header').getByRole('link', { name: '求职 Agent' })).toHaveCount(0);
     const jobOptionValue = await page
       .getByTestId('training-job')
       .locator('option', { hasText: 'E2E 云原生技术支持' })

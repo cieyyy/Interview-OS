@@ -314,7 +314,7 @@ function leaveSession(): void {
   <section>
     <PageHeader eyebrow="AI CAREER COACH" :title="isEnglish ? 'AI Career Coach' : 'AI 职业教练'" :description="isEnglish ? 'One workspace for mock interviews, project deep dives, technical questions, resume follow-ups, job analysis, and English practice.' : '统一模拟面试、项目深挖、技术问答、简历追问、岗位分析和英语训练，并关联岗位、简历与项目上下文。'">
       <button v-if="active" class="button ghost" type="button" @click="leaveSession">{{ isEnglish ? 'End session' : '结束本次训练' }}</button>
-      <template v-else><RouterLink class="button ghost" to="/reports">训练报告</RouterLink><RouterLink class="button secondary" to="/career-agent">求职 Agent</RouterLink></template>
+      <RouterLink v-else class="button ghost" to="/reports">训练报告</RouterLink>
     </PageHeader>
 
     <div v-if="!active" class="training-setup">
