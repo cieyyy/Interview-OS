@@ -5,6 +5,7 @@ import { Mic, MicOff, Volume2 } from '@lucide/vue';
 import type { CoachMode, InterviewQuestionType, TrainingCoachResult, TrainingLanguage, TrainingMode } from '../../shared/domain';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
+import { useUiPreferences } from '../composables/useUiPreferences';
 
 interface SpeechRecognitionResultLike {
   isFinal: boolean;
@@ -27,12 +28,13 @@ interface SpeechRecognitionLike {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
 const { store, startTraining, submitTraining, finalizeTraining, coachTraining, saveProject } = useWorkspace();
+const { preferences } = useUiPreferences();
 const route = useRoute();
 const coachMode = ref<CoachMode>('mock-interview');
 const jobId = ref('');
 const projectId = ref('');
 const resumeId = ref('');
-const language = ref<TrainingLanguage>('zh-CN');
+const language = ref<TrainingLanguage>(preferences.language);
 const practiceMode = ref<TrainingMode>('pressure');
 const maxRounds = ref(8);
 const answer = ref('');
@@ -66,6 +68,8 @@ const coachModes: Array<{ value: CoachMode; label: string; description: string }
   { value: 'jd-analysis', label: '岗位分析', description: '拆解技能要求、面试重点和学习建议' },
   { value: 'english-interview', label: '英语面试', description: '全英文问题、表达训练和证据纠错' }
 ];
+
+watch(() => preferences.language, (value) => { if (!active.value) language.value = value; });
 
 watch(
   () => [route.query.jobId, route.query.projectId, route.query.resumeId, route.query.mode, store.workspace?.jobs.length, store.workspace?.projects.length, store.workspace?.resumeVariants.length] as const,
@@ -313,14 +317,11 @@ function leaveSession(): void {
       <template v-else><RouterLink class="button ghost" to="/reports">训练报告</RouterLink><RouterLink class="button secondary" to="/career-agent">求职 Agent</RouterLink></template>
     </PageHeader>
 
-    <div v-if="!active" class="coach-mode-grid" aria-label="职业教练模式">
-      <button v-for="item in coachModes" :key="item.value" type="button" :class="{ active: coachMode === item.value }" :data-testid="`coach-mode-${item.value}`" @click="selectCoachMode(item.value)"><strong>{{ item.label }}</strong><span>{{ item.description }}</span></button>
-    </div>
-
     <div v-if="!active" class="training-setup">
       <div class="setup-copy"><span class="eyebrow">CLOSED LOOP PRACTICE</span><h2>{{ isEnglish ? 'Build answers that survive follow-up questions' : '走完闭环，简历才经得起追问' }}</h2><p>{{ isEnglish ? 'Use realistic pressure interviews to turn every resume claim into evidence you can explain and defend.' : '不是让 AI 替你写简历，而是通过真实压力面试，把每一句简历变成能够当场证明的能力。' }}</p><div class="loop-flow" :aria-label="isEnglish ? 'Interview practice loop' : '求职训练闭环'"><span>{{ isEnglish ? 'Role research' : '岗位研究' }}</span><i>→</i><span>{{ isEnglish ? 'Resume evidence' : '简历证据' }}</span><i>→</i><span>{{ isEnglish ? 'Pressure interview' : '压力面试' }}</span><i>→</i><span>{{ isEnglish ? 'Revise evidence' : '回写修正' }}</span><i>→</i><span>{{ isEnglish ? 'Final checklist' : '面试清单' }}</span></div><ul><li>{{ isEnglish ? 'Up to 8 rounds, with one question at a time' : '最多 8 轮，一次只问一个问题' }}</li><li>{{ isEnglish ? 'Dynamic follow-ups based on the previous answer, without repetition' : '根据上一轮回答动态追问，自动避开重复问题' }}</li><li>{{ isEnglish ? 'Identify evidence gaps, structural issues, delivery risks, and resume updates' : '拆出证据缺口、结构断点、表达漏洞和简历修改建议' }}</li></ul></div>
       <form class="panel setup-form" data-testid="training-setup" @submit.prevent="start">
         <h3>{{ isEnglish ? 'Set the coaching context' : `设置${coachModes.find((item) => item.value === coachMode)?.label ?? '训练'}上下文` }}</h3>
+        <label>{{ isEnglish ? 'Coaching mode' : '陪练类型' }}<select v-model="coachMode" class="input" data-testid="training-coach-mode" @change="selectCoachMode(coachMode)"><option v-for="item in coachModes" :key="item.value" :value="item.value">{{ item.label }} · {{ item.description }}</option></select></label>
         <label>{{ isEnglish ? 'Target role' : '目标岗位' }}<select v-model="jobId" class="input" data-testid="training-job"><option value="">{{ isEnglish ? 'General practice' : '综合训练' }}</option><option v-for="(job, index) in store.workspace?.jobs" :key="job.id" :value="job.id">{{ isEnglish ? `${englishDisplay(job.company, 'Company')} · ${englishDisplay(job.title, `Target role ${index + 1}`)}` : `${job.company} · ${job.title}` }}</option></select></label>
         <label>{{ isEnglish ? 'Project experience' : '项目经历' }}<select v-model="projectId" class="input" data-testid="training-project"><option value="">{{ isEnglish ? 'No specific project' : '不指定项目' }}</option><option v-for="(item, index) in store.workspace?.projects" :key="item.id" :value="item.id">{{ isEnglish ? englishDisplay(item.name, `Project ${index + 1}`) : item.name }}</option></select></label>
         <label>{{ isEnglish ? 'Resume version' : '简历版本' }}<select v-model="resumeId" class="input" data-testid="training-resume"><option value="">{{ isEnglish ? 'No specific resume' : '不指定简历' }}</option><option v-for="(item, index) in store.workspace?.resumeVariants" :key="item.id" :value="item.id">{{ isEnglish ? englishDisplay(item.name, `Resume ${index + 1}`) : item.name }}</option></select></label>

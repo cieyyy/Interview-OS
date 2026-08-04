@@ -2,7 +2,6 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 import {
-  BookOpenText,
   BrainCircuit,
   Building2,
   Database,
@@ -12,35 +11,34 @@ import {
   House,
   Radar,
   Settings,
-  ShieldCheck,
   SquareKanban,
   UserRound,
   BriefcaseBusiness,
-  ChartNoAxesCombined,
   X
 } from '@lucide/vue';
 import { useWorkspace } from './composables/useWorkspace';
+import { useUiPreferences } from './composables/useUiPreferences';
 import { resolvePrimaryNavigation } from './navigation';
 
 const route = useRoute();
 const { store, clearMessages } = useWorkspace();
-const navItems = [
-  { to: '/', label: '工作台', icon: House },
-  { to: '/career-agent', label: '求职 Agent', icon: BriefcaseBusiness },
-  { to: '/profile', label: '职业档案', icon: UserRound },
-  { to: '/job-sync', label: '岗位中心', icon: Radar },
-  { to: '/job-insights', label: '岗位洞察', icon: ChartNoAxesCombined },
-  { to: '/jobs', label: '岗位分析', icon: FileSearch },
-  { to: '/skill-graph', label: '能力成长', icon: GitBranch },
-  { to: '/resumes', label: '简历工坊', icon: FileUser },
-  { to: '/projects', label: '项目资产库', icon: UserRound },
-  { to: '/coach', label: 'AI 职业教练', icon: BrainCircuit },
-  { to: '/knowledge', label: '知识空间', icon: BookOpenText },
-  { to: '/applications', label: '求职管道', icon: SquareKanban },
-  { to: '/companies', label: '公司关注', icon: Building2 },
-  { to: '/data-center', label: '数据中心', icon: Database },
-  { to: '/settings', label: '设置', icon: Settings }
-];
+const { preferences } = useUiPreferences();
+const navItems = computed(() => {
+  const english = preferences.language === 'en-US';
+  return [
+    { to: '/', label: english ? 'Workspace' : '工作台', icon: House },
+    { to: '/career-agent', label: english ? 'Job Agent' : '求职 Agent', icon: BriefcaseBusiness },
+    { to: '/profile', label: english ? 'Career Profile' : '职业档案', icon: UserRound },
+    { to: '/job-sync', label: english ? 'Job Center' : '岗位中心', icon: Radar },
+    { to: '/jobs', label: english ? 'Job Analysis' : '岗位分析', icon: FileSearch },
+    { to: '/skill-graph', label: english ? 'Capability Growth' : '能力成长', icon: GitBranch },
+    { to: '/resumes', label: english ? 'Resume Studio' : '简历工坊', icon: FileUser },
+    { to: '/coach', label: english ? 'AI Career Coach' : 'AI 职业教练', icon: BrainCircuit },
+    { to: '/applications', label: english ? 'Applications' : '求职管道', icon: SquareKanban },
+    { to: '/companies', label: english ? 'Companies' : '公司关注', icon: Building2 },
+    { to: '/settings', label: english ? 'Settings' : '设置', icon: Settings }
+  ];
+});
 const active = computed(() => resolvePrimaryNavigation(route.path, route.query));
 </script>
 
@@ -50,7 +48,7 @@ const active = computed(() => resolvePrimaryNavigation(route.path, route.query))
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">IO</div>
-        <div><strong>Interview OS</strong><span>个人职业 AI 操作系统</span></div>
+        <div><strong>Interview OS</strong><span>{{ preferences.language === 'en-US' ? 'Personal career operating system' : '个人职业 AI 操作系统' }}</span></div>
       </div>
       <nav class="nav-list" aria-label="主导航">
         <RouterLink
@@ -65,16 +63,11 @@ const active = computed(() => resolvePrimaryNavigation(route.path, route.query))
           <span>{{ item.label }}</span>
         </RouterLink>
       </nav>
-      <div class="sidebar-footer">
-        <ShieldCheck class="sidebar-status-icon" :size="18" :stroke-width="1.8" aria-hidden="true" />
-        <div><strong>本地优先</strong><small>核心功能无需 Docker</small></div>
-      </div>
     </aside>
 
     <main class="main-shell">
       <div class="topbar">
-        <div class="workspace-pill"><Database :size="15" :stroke-width="1.8" aria-hidden="true" />{{ store.workspace?.settings.workspaceName ?? '加载工作区…' }}</div>
-        <div class="topbar-meta" title="档案、项目和训练记录默认保存在本机；只有你主动使用图片识别或 AI 陪练时，相关内容才会发送给已配置的模型服务。"><ShieldCheck :size="14" :stroke-width="1.8" aria-hidden="true" />本地优先 · 仅主动使用 AI 时发送所选内容</div>
+        <div class="workspace-pill"><Database :size="15" :stroke-width="1.8" aria-hidden="true" />{{ store.workspace?.settings.workspaceName ?? (preferences.language === 'en-US' ? 'Loading workspace…' : '加载工作区…') }}</div>
       </div>
       <div id="main-content" class="content-area" tabindex="-1">
         <RouterView />

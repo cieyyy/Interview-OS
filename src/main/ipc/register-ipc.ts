@@ -59,6 +59,7 @@ export function registerIpc(
   ipcMain.handle(IPC.deleteJobAlertRule, (_event, id) => safe(() => workspace.deleteJobAlertRule(String(id))));
   ipcMain.handle(IPC.validateJobSource, (_event, id) => safe(() => workspace.validateJobSource(String(id))));
   ipcMain.handle(IPC.saveCareerSearchPlan, (_event, input) => safe(() => workspace.saveCareerSearchPlan(input)));
+  ipcMain.handle(IPC.deleteCareerSearchPlan, (_event, id) => safe(() => workspace.deleteCareerSearchPlan(String(id))));
   ipcMain.handle(IPC.runCareerSearchPlan, (_event, id) => safe(() => workspace.runCareerSearchPlan(String(id))));
   ipcMain.handle(IPC.saveCareerMemory, (_event, input) => safe(() => workspace.saveCareerMemory(input)));
   ipcMain.handle(IPC.saveCompanyWatch, (_event, input) => safe(() => workspace.saveCompanyWatch(input)));

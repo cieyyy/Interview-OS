@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { BadgeCheck, Copy, FileText, Plus, Sparkles, Target } from '@lucide/vue';
+import { BadgeCheck, Copy, FileText, Pencil, Plus, Sparkles, Target } from '@lucide/vue';
 import type { ResumeVariant, ResumeVariantInput } from '../../shared/domain';
 import { buildResumeDraft } from '../../shared/career-engine';
 import PageHeader from '../components/PageHeader.vue';
@@ -12,7 +12,7 @@ const route = useRoute();
 const editing = ref(false);
 const copyMessage = ref('');
 const emptyForm = (): ResumeVariantInput => ({
-  name: '', jobId: '', headline: '', summary: '', highlights: [], projectIds: [], skillIds: [], status: 'draft'
+  name: '', jobId: '', headline: '', summary: '', highlights: [], projectIds: [], skillIds: [], skillNames: [], status: 'draft'
 });
 const form = reactive<ResumeVariantInput>(emptyForm());
 const highlightText = computed({
@@ -22,6 +22,16 @@ const highlightText = computed({
 const previewProjects = computed(() => store.workspace?.projects.filter((item) => form.projectIds?.includes(item.id)) ?? []);
 const previewSkills = computed(() => store.workspace?.profile.skills.filter((item) => form.skillIds?.includes(item.id)) ?? []);
 const targetJob = computed(() => store.workspace?.jobs.find((item) => item.id === form.jobId));
+const generatedSkillOptions = computed(() => {
+  const projectSkills = previewProjects.value.flatMap((item) => item.techStack);
+  const jobSkills = targetJob.value?.requirements.map((item) => item.label) ?? [];
+  const profileSkills = store.workspace?.profile.skills.map((item) => item.name) ?? [];
+  return [...new Set([...projectSkills, ...jobSkills, ...profileSkills].map((item) => item.trim()).filter(Boolean))].slice(0, 24);
+});
+const previewSkillNames = computed(() => [...new Set([
+  ...previewSkills.value.map((item) => item.name),
+  ...(form.skillNames ?? [])
+])]);
 const consumedJobQuery = ref('');
 
 watch(
@@ -51,10 +61,32 @@ function selectVariant(item: ResumeVariant): void {
     highlights: [...item.highlights],
     projectIds: [...item.projectIds],
     skillIds: [...item.skillIds],
+    skillNames: [...(item.skillNames ?? [])],
     status: item.status
   });
   editing.value = true;
   copyMessage.value = '';
+}
+
+function toggleGeneratedSkill(name: string): void {
+  const profileSkill = store.workspace?.profile.skills.find((item) => item.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+  if (profileSkill) {
+    const current = form.skillIds ?? [];
+    form.skillIds = current.includes(profileSkill.id) ? current.filter((id) => id !== profileSkill.id) : [...current, profileSkill.id];
+    return;
+  }
+  const current = form.skillNames ?? [];
+  form.skillNames = current.includes(name) ? current.filter((item) => item !== name) : [...current, name];
+}
+
+function generatedSkillSelected(name: string): boolean {
+  const profileSkill = store.workspace?.profile.skills.find((item) => item.name.toLocaleLowerCase() === name.toLocaleLowerCase());
+  return profileSkill ? Boolean(form.skillIds?.includes(profileSkill.id)) : Boolean(form.skillNames?.includes(name));
+}
+
+function editPreview(): void {
+  editing.value = true;
+  requestAnimationFrame(() => document.querySelector<HTMLElement>('.resume-editor input, .resume-editor textarea')?.focus());
 }
 
 function generateDraft(): void {
@@ -75,7 +107,7 @@ function resumeMarkdown(): string {
   const projectRows = previewProjects.value.map((item) =>
     `## ${item.name}\n\n**角色：** ${item.role}\n\n${item.responsibilities}\n\n${item.actions}\n\n**结果：** ${item.results}`
   ).join('\n\n');
-  return `# ${profile?.nickname || '候选人'}\n\n${form.headline}\n\n## 个人摘要\n\n${form.summary}\n\n## 核心技能\n\n${previewSkills.value.map((item) => `- ${item.name}（${item.level}）`).join('\n')}\n\n## 核心亮点\n\n${(form.highlights ?? []).map((item) => `- ${item}`).join('\n')}\n\n${projectRows}`;
+  return `# ${profile?.nickname || '候选人'}\n\n${form.headline}\n\n## 个人摘要\n\n${form.summary}\n\n## 核心技能\n\n${previewSkillNames.value.map((item) => `- ${item}`).join('\n')}\n\n## 核心亮点\n\n${(form.highlights ?? []).map((item) => `- ${item}`).join('\n')}\n\n${projectRows}`;
 }
 
 async function copyMarkdown(): Promise<void> {
@@ -113,15 +145,15 @@ async function copyMarkdown(): Promise<void> {
           <label>个人摘要<textarea v-model="form.summary" class="input compact-textarea" required></textarea></label>
           <label>核心亮点（每行一条）<textarea v-model="highlightText" class="input compact-textarea" placeholder="写清个人动作、结果和验证方式"></textarea></label>
           <fieldset class="selection-fieldset"><legend>选择项目证据</legend><label v-for="project in store.workspace?.projects" :key="project.id"><input v-model="form.projectIds" type="checkbox" :value="project.id" /><span><strong>{{ project.name }}</strong><small>{{ project.role }} · {{ project.techStack.slice(0, 4).join(' / ') }}</small></span></label></fieldset>
-          <fieldset class="selection-fieldset compact"><legend>选择核心技能</legend><label v-for="skill in store.workspace?.profile.skills" :key="skill.id"><input v-model="form.skillIds" type="checkbox" :value="skill.id" /><span>{{ skill.name }}</span></label></fieldset>
+          <fieldset class="selection-fieldset compact generated-skill-fieldset"><legend>动态核心技能</legend><p>根据已选项目、目标岗位要求和职业档案实时生成。</p><button v-for="skill in generatedSkillOptions" :key="skill" class="skill-toggle" :class="{ selected: generatedSkillSelected(skill) }" type="button" @click="toggleGeneratedSkill(skill)">{{ skill }}</button></fieldset>
           <div class="form-actions"><span></span><button class="button primary" type="submit" data-testid="resume-save">保存版本</button></div>
         </form>
 
         <article class="resume-sheet" data-testid="resume-preview">
-          <div class="resume-sheet-actions"><span v-if="targetJob"><Target :size="15" />{{ targetJob.company || '目标公司' }} · {{ targetJob.title }}</span><span v-else>通用求职版本</span><button class="icon-command" type="button" title="复制 Markdown" aria-label="复制 Markdown" data-testid="resume-copy-markdown" @click="copyMarkdown"><Copy :size="16" /></button></div>
+          <div class="resume-sheet-actions"><span v-if="targetJob"><Target :size="15" />{{ targetJob.company || '目标公司' }} · {{ targetJob.title }}</span><span v-else>通用求职版本</span><div><button class="icon-command" type="button" title="编辑实时简历" aria-label="编辑实时简历" @click="editPreview"><Pencil :size="16" /></button><button class="icon-command" type="button" title="复制 Markdown" aria-label="复制 Markdown" data-testid="resume-copy-markdown" @click="copyMarkdown"><Copy :size="16" /></button></div></div>
           <header><span class="eyebrow">CURRICULUM VITAE</span><h2>{{ store.workspace?.profile.nickname || '候选人' }}</h2><p>{{ form.headline || '填写求职标题' }}</p></header>
           <section><h3>个人摘要</h3><p>{{ form.summary || '根据目标岗位，说明经验年限、能力边界和可以验证的价值。' }}</p></section>
-          <section><h3>核心技能</h3><div class="resume-skill-row"><span v-for="skill in previewSkills" :key="skill.id">{{ skill.name }}</span><small v-if="!previewSkills.length">尚未选择技能</small></div></section>
+          <section><h3>核心技能</h3><div class="resume-skill-row"><span v-for="skill in previewSkillNames" :key="skill">{{ skill }}</span><small v-if="!previewSkillNames.length">尚未选择技能</small></div></section>
           <section><h3>核心亮点</h3><ul><li v-for="item in form.highlights" :key="item">{{ item }}</li><li v-if="!form.highlights?.length">尚未添加可验证亮点</li></ul></section>
           <section><h3>项目经历</h3><div v-for="project in previewProjects" :key="project.id" class="resume-project"><div><strong>{{ project.name }}</strong><span>{{ project.role }}</span></div><p>{{ project.responsibilities }}</p><p>{{ project.actions }}</p><b>{{ project.results }}</b></div><p v-if="!previewProjects.length">尚未选择项目证据</p></section>
           <footer><BadgeCheck :size="15" /><span>仅使用本地档案中的真实信息</span><small>{{ copyMessage }}</small></footer>

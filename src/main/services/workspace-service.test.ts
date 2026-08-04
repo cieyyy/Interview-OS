@@ -410,7 +410,7 @@ describe('WorkspaceService', () => {
     expect(service.getState().jobs).toHaveLength(0);
   });
 
-  it('runs the local career agent and persists company watch and career memory', async () => {
+  it('runs the local career agent, deletes its plan and run, and persists company watch and career memory', async () => {
     const token = service.getState().settings.jobSyncToken;
     await service.ingestSyncedJobs({
       token, sourceSite: 'company-careers', sourceName: '官网', pageUrl: 'https://careers.example.com',
@@ -426,6 +426,11 @@ describe('WorkspaceService', () => {
     expect(memory.tags).toContain('偏好');
     expect(checked.openJobs).toBe(1);
     expect(checked.lastCheckedAt).toBeTruthy();
+
+    await expect(service.deleteCareerSearchPlan(plan.id)).resolves.toEqual({ deleted: true });
+    expect(service.getState().careerSearchPlans.some((item) => item.id === plan.id)).toBe(false);
+    expect(service.getState().careerAgentRuns.some((item) => item.id === run.id)).toBe(false);
+    await expect(service.deleteCareerSearchPlan(plan.id)).resolves.toEqual({ deleted: false });
   });
 
   it('checks watched company career pages on startup and imports matching structured jobs', async () => {

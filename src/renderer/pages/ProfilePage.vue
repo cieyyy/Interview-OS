@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { reactive, ref, watch, watchEffect } from 'vue';
+import { computed, reactive, ref, watch, watchEffect } from 'vue';
 import { useRoute } from 'vue-router';
+import { ChevronLeft, ChevronRight } from '@lucide/vue';
 import type { DocumentImportResult, ProfileInput, ProjectExperience, ProjectInput, SkillLevel } from '../../shared/domain';
 import DocumentImportButton from '../components/DocumentImportButton.vue';
 import PageHeader from '../components/PageHeader.vue';
@@ -16,6 +17,12 @@ const importWarnings = ref<string[]>([]);
 const profile = reactive<ProfileInput>({ nickname: '', currentRole: '', yearsExperience: 0, education: '', targetRoles: [], skills: [] });
 const project = reactive<ProjectInput>(emptyProject());
 const techText = ref('');
+const projectPage = ref(1);
+const projects = computed(() => store.workspace?.projects ?? []);
+const projectPageCount = computed(() => Math.max(1, projects.value.length));
+const currentProject = computed(() => projects.value[projectPage.value - 1]);
+
+watch(projectPageCount, (count) => { if (projectPage.value > count) projectPage.value = count; });
 
 watch(() => route.query.tab, (value) => { if (value === 'projects' || value === 'profile') tab.value = value; }, { immediate: true });
 
@@ -120,6 +127,8 @@ function editProject(item: ProjectExperience): void {
     interviewRevisionNotes: item.interviewRevisionNotes
   });
   techText.value = item.techStack.join(', ');
+  const index = projects.value.findIndex((entry) => entry.id === item.id);
+  if (index >= 0) projectPage.value = index + 1;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -192,14 +201,22 @@ async function submitProject(): Promise<void> {
       </div>
       <div class="panel recorded-projects">
         <div class="panel-heading"><div><span class="eyebrow">PROJECTS</span><h3>已记录项目</h3></div><strong>{{ store.workspace?.projects.length ?? 0 }}</strong></div>
-        <div class="card-stack">
-          <article v-for="item in store.workspace?.projects" :key="item.id" class="project-card" :data-testid="`project-card-${item.id}`">
+        <div class="recorded-project-page">
+          <article v-if="currentProject" :key="currentProject.id" class="project-card" :data-testid="`project-card-${currentProject.id}`">
+            <template v-for="item in [currentProject]" :key="item.id">
             <div class="project-card-heading"><div><span class="chip">{{ item.role }}</span><h3>{{ item.name }}</h3></div><button class="button secondary compact" type="button" :data-testid="`project-edit-${item.id}`" @click="editProject(item)">编辑</button></div>
             <p>{{ item.background }}</p>
             <div class="tag-row"><span v-for="tech in item.techStack" :key="tech">{{ tech }}</span></div>
             <footer>{{ item.results }}</footer>
             <details v-if="item.interviewRevisionNotes" class="project-calibration"><summary>查看面试校准记录</summary><p>{{ item.interviewRevisionNotes }}</p></details>
+            </template>
           </article>
+          <div v-else class="empty-state compact"><h3>还没有项目经历</h3><p>在左侧填写并保存第一段真实项目经历。</p></div>
+          <nav v-if="projects.length" class="project-pagination" aria-label="项目经历分页">
+            <button class="icon-command" type="button" title="上一个项目" :disabled="projectPage === 1" @click="projectPage -= 1"><ChevronLeft :size="16" /></button>
+            <span><strong>{{ projectPage }}</strong> / {{ projectPageCount }}</span>
+            <button class="icon-command" type="button" title="下一个项目" :disabled="projectPage === projectPageCount" @click="projectPage += 1"><ChevronRight :size="16" /></button>
+          </nav>
         </div>
       </div>
     </div>

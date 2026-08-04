@@ -15,16 +15,15 @@ test('all product modules use the shared typography scale', async () => {
 
   const modules = [
     'dashboard',
+    'career-agent',
+    'profile',
     'coach',
     'resumes',
     'job-sync',
     'jobs',
-    'knowledge',
-    'projects',
     'applications',
     'companies',
     'skill-graph',
-    'data-center',
     'settings'
   ];
 

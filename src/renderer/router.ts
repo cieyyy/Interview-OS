@@ -1,6 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router';
 import DashboardPage from './pages/DashboardPage.vue';
-import KnowledgePage from './pages/KnowledgePage.vue';
 import ProfilePage from './pages/ProfilePage.vue';
 import JobsPage from './pages/JobsPage.vue';
 import TrainingPage from './pages/TrainingPage.vue';
@@ -10,26 +9,23 @@ import ApplicationsPage from './pages/ApplicationsPage.vue';
 import ResumeStudioPage from './pages/ResumeStudioPage.vue';
 import CareerCalendarPage from './pages/CareerCalendarPage.vue';
 import JobSyncPage from './pages/JobSyncPage.vue';
-import JobInsightsPage from './pages/JobInsightsPage.vue';
 import CareerAgentPage from './pages/CareerAgentPage.vue';
 import CompaniesPage from './pages/CompaniesPage.vue';
 import SkillGraphPage from './pages/SkillGraphPage.vue';
-import DataCenterPage from './pages/DataCenterPage.vue';
-import ProjectAssetsPage from './pages/ProjectAssetsPage.vue';
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', name: 'dashboard', component: DashboardPage },
     { path: '/career-agent', name: 'career-agent', component: CareerAgentPage },
-    { path: '/knowledge', name: 'knowledge', component: KnowledgePage },
+    { path: '/knowledge', redirect: '/profile' },
     { path: '/profile', name: 'profile', component: ProfilePage },
     { path: '/jobs', name: 'jobs', component: JobsPage },
     { path: '/job-sync', name: 'job-sync', component: JobSyncPage },
-    { path: '/job-insights', name: 'job-insights', component: JobInsightsPage },
+    { path: '/job-insights', redirect: '/job-sync' },
     { path: '/companies', name: 'companies', component: CompaniesPage },
     { path: '/skill-graph', name: 'skill-graph', component: SkillGraphPage },
-    { path: '/data-center', name: 'data-center', component: DataCenterPage },
+    { path: '/data-center', redirect: '/' },
     { path: '/applications', name: 'applications', component: ApplicationsPage },
     { path: '/resumes', name: 'resumes', component: ResumeStudioPage },
     { path: '/calendar', name: 'calendar', component: CareerCalendarPage },
@@ -37,7 +33,7 @@ const router = createRouter({
     { path: '/training', redirect: '/coach' },
     { path: '/reports', name: 'reports', component: ReportsPage },
     { path: '/assistant', redirect: '/coach' },
-    { path: '/projects', name: 'projects', component: ProjectAssetsPage },
+    { path: '/projects', redirect: { path: '/profile', query: { tab: 'projects' } } },
     { path: '/settings', name: 'settings', component: SettingsPage }
   ]
 });

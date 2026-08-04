@@ -1,31 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { BookOpenCheck, BrainCircuit, CircleAlert, GitBranch, GraduationCap, ShieldAlert, Sparkles, Target } from '@lucide/vue';
+import { BookOpenCheck, BrainCircuit, CircleAlert, GitBranch, GraduationCap, Sparkles, Target } from '@lucide/vue';
 import { buildSkillGraph } from '../../shared/career-agent-engine';
-import { analyzeSyncedJob } from '../../shared/job-intelligence';
-import type { JobMatchDimensions } from '../../shared/domain';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
 
 const { store } = useWorkspace();
 const selectedJobId = ref('');
 const selectedJob = computed(() => store.workspace?.syncedJobs.find((item) => item.id === selectedJobId.value));
-const selectedAudit = computed(() => selectedJob.value && store.workspace ? analyzeSyncedJob(selectedJob.value, store.workspace.profile) : undefined);
 const nodes = computed(() => store.workspace ? buildSkillGraph(store.workspace, selectedJobId.value || undefined) : []);
 const verified = computed(() => nodes.value.filter((item) => item.category === 'verified'));
 const related = computed(() => nodes.value.filter((item) => item.category === 'related'));
 const gaps = computed(() => nodes.value.filter((item) => item.category === 'gap'));
 const readiness = computed(() => nodes.value.length ? Math.round(nodes.value.reduce((sum, item) => sum + item.readiness, 0) / nodes.value.length) : 0);
-const dimensions = computed<Array<{ key: keyof JobMatchDimensions; label: string; value: number }>>(() => {
-  const value = selectedAudit.value?.matchDimensions ?? selectedJob.value?.matchDimensions;
-  if (!value) return [];
-  return [
-    { key: 'role', label: '方向', value: value.role }, { key: 'skills', label: '技能', value: value.skills },
-    { key: 'experience', label: '经验', value: value.experience }, { key: 'education', label: '学历', value: value.education },
-    { key: 'location', label: '地点', value: value.location }, { key: 'salary', label: '薪资', value: value.salary },
-    { key: 'freshness', label: '时效', value: value.freshness }
-  ];
-});
 const roadmap = computed(() => gaps.value.slice(0, 6).map((item, index) => ({
   skill: item.name,
   phase: index < 2 ? '本周' : index < 4 ? '两周内' : '面试前',
@@ -49,10 +36,6 @@ const roadmap = computed(() => gaps.value.slice(0, 6).map((item, index) => ({
         </div>
       </main>
 
-      <aside class="skill-analysis-side">
-        <section class="match-dimension-panel"><header><Target :size="17" /><div><span class="eyebrow">MATCH BREAKDOWN</span><h3>匹配分项</h3></div></header><div v-if="dimensions.length" class="dimension-bars"><div v-for="item in dimensions" :key="item.key"><span>{{ item.label }}</span><i><b :style="{ width: `${item.value}%` }"></b></i><strong>{{ item.value }}</strong></div></div><p v-else>选择一个岗位查看方向、技能、经验、学历、地点、薪资和时效分项。</p></section>
-        <section class="job-audit-panel"><header><ShieldAlert :size="17" /><div><span class="eyebrow">TRUST AUDIT</span><h3>岗位审计</h3></div></header><template v-if="selectedJob"><div class="audit-scores"><span><strong>{{ selectedAudit?.qualityScore ?? selectedJob.qualityScore }}</strong><small>字段质量</small></span><span><strong>{{ selectedAudit?.trustScore ?? selectedJob.trustScore }}</strong><small>可信度</small></span></div><div class="audit-flags"><span v-for="flag in (selectedAudit?.riskFlags ?? selectedJob.riskFlags)" :key="flag" class="risk">{{ flag }}</span><span v-for="flag in (selectedAudit?.biasFlags ?? selectedJob.biasFlags)" :key="flag" class="bias">{{ flag }}</span><small v-if="!(selectedAudit?.riskFlags ?? selectedJob.riskFlags).length && !(selectedAudit?.biasFlags ?? selectedJob.biasFlags).length">未发现明显风险或偏见表述。</small></div></template><p v-else>选择岗位后查看信息完整度、风险和公平性提示。</p></section>
-      </aside>
     </div>
 
     <section class="learning-roadmap"><header><div><span class="eyebrow">ROADMAP</span><h3>能力补强路线</h3></div><GraduationCap :size="19" /></header><div><article v-for="(item, index) in roadmap" :key="item.skill"><span>{{ index + 1 }}</span><div><strong>{{ item.skill }}</strong><small>{{ item.action }}</small></div><b>{{ item.phase }}</b></article><p v-if="!roadmap.length"><Sparkles :size="16" />当前岗位需求已被现有能力覆盖，下一步重点是整理可验证项目证据。</p></div></section>

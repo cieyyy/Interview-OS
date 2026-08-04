@@ -1,6 +1,6 @@
 import { expect, test, _electron as electron } from '@playwright/test';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -37,17 +37,12 @@ test('packaged desktop application starts and can write isolated local data', as
     await expect(page.getByRole('heading', { name: '今天，推进一件最重要的事' })).toBeVisible();
     await page.getByRole('button', { name: '加载演示数据' }).click();
     await expect(page.getByTestId('stat-projects')).toHaveText('1');
-    await expect(page.getByTestId('stat-knowledge')).toHaveText('1');
-
-    const knowledgePath = path.join(dataDirectory, 'packaged-import.md');
-    await writeFile(knowledgePath, '# 打包版导入验证\nKubernetes 发布与日志排查。', 'utf8');
-    await app.evaluate(({ dialog }, selectedPath) => {
-      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selectedPath] });
-    }, knowledgePath);
-    await page.getByTestId('nav-knowledge').click();
-    await page.getByTestId('knowledge-import-file').click();
-    await expect(page.getByTestId('knowledge-title')).toHaveValue('打包版导入验证');
-    await expect(page.getByTestId('knowledge-content')).toHaveValue(/Kubernetes/);
+    await page.getByTestId('nav-profile').click();
+    await page.getByTestId('profile-role').fill('打包版验证工程师');
+    await page.getByRole('button', { name: '保存职业档案' }).click();
+    await page.getByTestId('nav-dashboard').click();
+    await page.getByTestId('nav-profile').click();
+    await expect(page.getByTestId('profile-role')).toHaveValue('打包版验证工程师');
 
     const artifacts = path.resolve('artifacts');
     await mkdir(artifacts, { recursive: true });

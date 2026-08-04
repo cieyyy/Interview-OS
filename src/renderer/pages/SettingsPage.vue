@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { reactive, ref, watchEffect } from 'vue';
-import { AlertTriangle, Bot, DatabaseBackup, Download, HardDrive, PlugZap, Save, ShieldCheck, Trash2 } from '@lucide/vue';
+import { AlertTriangle, Bot, DatabaseBackup, Download, HardDrive, Languages, MapPin, Moon, PlugZap, Save, ShieldCheck, Sun, Trash2 } from '@lucide/vue';
 import type { ProviderInput } from '../../shared/domain';
-import ObsidianSettingsPanel from '../components/ObsidianSettingsPanel.vue';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
+import { useUiPreferences } from '../composables/useUiPreferences';
 
 const { store, saveProvider, testProvider, createBackup, exportMarkdown, clearWorkspaceData } = useWorkspace();
+const { preferences } = useUiPreferences();
 const provider = reactive<ProviderInput>({ kind: 'openai-compatible', name: 'OpenAI Compatible', baseUrl: 'https://api.openai.com/v1', model: '', apiKey: '', enabled: false });
 const testMessage = ref('');
 const operationPath = ref('');
@@ -30,9 +31,22 @@ async function cleanupData(): Promise<void> {
 
 <template>
   <section>
-    <PageHeader eyebrow="CONTROL" title="设置与数据" description="你决定数据放在哪里、哪些内容可以发送给外部服务。" />
+    <PageHeader eyebrow="CONTROL" :title="preferences.language === 'en-US' ? 'Settings' : '设置'" :description="preferences.language === 'en-US' ? 'Control interface preferences, map services, local data, and optional AI connections.' : '管理界面偏好、地图服务、本地数据和可选 AI 连接。'" />
     <div class="settings-grid">
-      <ObsidianSettingsPanel />
+      <article class="panel settings-card preference-card">
+        <div class="settings-heading"><div><span class="settings-icon"><Languages :size="18" /></span><div><h3>{{ preferences.language === 'en-US' ? 'Interface preferences' : '界面偏好' }}</h3><p>{{ preferences.language === 'en-US' ? 'Applied immediately and saved on this device' : '立即生效并保存在本机' }}</p></div></div></div>
+        <div class="form-grid two">
+          <label>{{ preferences.language === 'en-US' ? 'Language' : '界面语言' }}<select v-model="preferences.language" class="input" data-testid="settings-language"><option value="zh-CN">中文</option><option value="en-US">English</option></select></label>
+          <label>{{ preferences.language === 'en-US' ? 'Theme' : '界面主题' }}<span class="theme-segmented"><button type="button" :class="{ active: preferences.theme === 'light' }" @click="preferences.theme = 'light'"><Sun :size="15" />{{ preferences.language === 'en-US' ? 'Light' : '白色' }}</button><button type="button" :class="{ active: preferences.theme === 'dark' }" @click="preferences.theme = 'dark'"><Moon :size="15" />{{ preferences.language === 'en-US' ? 'Dark' : '黑色' }}</button></span></label>
+        </div>
+      </article>
+
+      <article class="panel settings-card">
+        <div class="settings-heading"><div><span class="settings-icon"><MapPin :size="18" /></span><div><h3>{{ preferences.language === 'en-US' ? 'Map service' : '地图服务' }}</h3><p>{{ preferences.language === 'en-US' ? 'Used for accurate job distance calculation' : '用于准确计算岗位距离' }}</p></div></div><span class="status-badge" :class="preferences.mapApiKey ? 'completed' : 'warning'">{{ preferences.mapApiKey ? (preferences.language === 'en-US' ? 'Configured' : '已配置') : (preferences.language === 'en-US' ? 'Key required' : '需要 Key') }}</span></div>
+        <label>{{ preferences.language === 'en-US' ? 'Provider' : '地图供应商' }}<select v-model="preferences.mapProvider" class="input"><option value="amap">高德地图 AMap</option></select></label>
+        <label>{{ preferences.language === 'en-US' ? 'Web service key' : 'Web 服务 Key' }}<input v-model="preferences.mapApiKey" class="input" type="password" autocomplete="off" placeholder="AMap Web Service Key" /></label>
+        <small>{{ preferences.language === 'en-US' ? 'The key is stored only in local application preferences. Configure domain/IP restrictions in the map console.' : 'Key 仅保存在本机应用偏好中；请在地图控制台配置域名或 IP 限制。' }}</small>
+      </article>
       <article class="panel settings-card"><div class="settings-heading"><div><span class="settings-icon"><HardDrive :size="18" aria-hidden="true" /></span><div><h3>本地工作区</h3><p>程序与个人内容分离保存</p></div></div><span class="status-badge completed">正常</span></div><dl><div><dt>数据目录</dt><dd data-testid="settings-data-dir">{{ store.meta?.dataDirectory ?? '读取中…' }}</dd></div><div><dt>应用版本</dt><dd>{{ store.meta?.version ?? '—' }}</dd></div></dl><div class="button-row"><button class="button secondary" type="button" data-testid="settings-backup" @click="backup"><DatabaseBackup :size="15" aria-hidden="true" />创建备份</button><button class="button secondary" type="button" data-testid="settings-export" @click="exportData"><Download :size="15" aria-hidden="true" />导出 Markdown</button></div><p v-if="operationPath" class="path-result">已生成：{{ operationPath }}</p></article>
 
       <article class="panel settings-card"><div class="settings-heading"><div><span class="settings-icon"><Bot :size="18" aria-hidden="true" /></span><div><h3>AI Provider</h3><p>可选，不影响离线功能</p></div></div><label class="switch"><input v-model="provider.enabled" type="checkbox" aria-label="启用 AI Provider" /><span></span></label></div><form data-testid="provider-form" @submit.prevent="save"><div class="form-grid two"><label>类型<select v-model="provider.kind" class="input"><option value="openai-compatible">OpenAI 兼容</option><option value="dify">远程 Dify</option></select></label><label>名称<input v-model="provider.name" class="input" required /></label></div><label>Base URL<input v-model="provider.baseUrl" class="input" required /></label><label v-if="provider.kind === 'openai-compatible'">模型<input v-model="provider.model" class="input" :required="provider.kind === 'openai-compatible'" /></label><label>API Key<input v-model="provider.apiKey" class="input" type="password" :placeholder="store.workspace?.settings.provider?.hasSecret ? '已安全保存；留空则不修改' : '仅保存到系统安全存储'" /></label><small class="provider-test-hint">测试会使用已保存配置发起一次最小生成请求，不再只检查接口地址。</small><div class="button-row"><button class="button secondary" type="button" @click="test"><PlugZap :size="15" aria-hidden="true" />测试模型调用</button><button class="button primary" type="submit"><Save :size="15" aria-hidden="true" />安全保存</button></div><p v-if="testMessage" class="path-result">{{ testMessage }}</p></form></article>
@@ -41,7 +55,7 @@ async function cleanupData(): Promise<void> {
 
       <article class="panel settings-card danger-zone" data-testid="settings-cleanup-card">
         <div class="settings-heading"><div><span class="settings-icon danger"><Trash2 :size="18" aria-hidden="true" /></span><div><h3>清理本地业务数据</h3><p>用于重新开始或交付设备前清除个人求职内容</p></div></div><span class="status-badge warning">高风险操作</span></div>
-        <ul class="cleanup-scope"><li>清空职业档案、项目、岗位、简历、知识、训练和求职记录</li><li>执行前自动创建完整 JSON 备份</li><li>保留数据源配置、插件同步令牌、AI 与 Obsidian 设置</li><li>不会删除外部 Obsidian Vault 中的文件</li></ul>
+        <ul class="cleanup-scope"><li>清空职业档案、项目、岗位、简历、训练和求职记录</li><li>执行前自动创建完整 JSON 备份</li><li>保留数据源配置、插件同步令牌、AI、地图和界面偏好</li><li>不会删除工作区之外的文件</li></ul>
         <button v-if="!cleanupOpen" class="button danger" type="button" data-testid="settings-cleanup-open" @click="cleanupOpen = true"><Trash2 :size="15" />开始清理</button>
         <div v-else class="cleanup-confirm" data-testid="settings-cleanup-confirm">
           <div class="cleanup-warning"><AlertTriangle :size="18" /><span><strong>清理后当前界面的业务数据会立即消失。</strong><small>如需撤销，请使用下方显示的自动备份文件恢复。</small></span></div>

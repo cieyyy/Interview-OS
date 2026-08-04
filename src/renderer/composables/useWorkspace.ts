@@ -210,6 +210,11 @@ export function useWorkspace() {
       if (value) await refresh();
       return value;
     },
+    async deleteCareerSearchPlan(id: string) {
+      const value = await run(() => unwrap(window.interviewOS.deleteCareerSearchPlan(id)), '求职搜索计划已删除');
+      if (value?.deleted) await refresh();
+      return value;
+    },
     async runCareerSearchPlan(id: string) {
       const value = await run(() => unwrap(window.interviewOS.runCareerSearchPlan(id)), '本地求职 Agent 已完成规划');
       if (value) await refresh();

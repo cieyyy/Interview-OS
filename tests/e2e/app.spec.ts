@@ -1,5 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -39,6 +39,14 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await expect(page.getByTestId('dashboard-empty')).toBeVisible();
     await page.getByRole('button', { name: '加载演示数据' }).click();
     await expect(page.getByTestId('stat-projects')).toHaveText('1');
+
+    await page.getByTestId('nav-career-agent').click();
+    const initialPlanCount = await page.locator('.agent-plan-row').count();
+    await page.getByRole('button', { name: /生成计划并运行/ }).click();
+    await expect(page.locator('.agent-plan-row')).toHaveCount(initialPlanCount + 1);
+    await page.getByTitle('删除计划').first().click();
+    await page.getByTestId('career-plan-delete-submit').click();
+    await expect(page.locator('.agent-plan-row')).toHaveCount(initialPlanCount);
 
     const mockFileSelection = async (filePath: string) => {
       await app.evaluate(({ dialog }, selectedPath) => {
@@ -80,24 +88,19 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await page.screenshot({ path: path.resolve('artifacts', 'profile-import.png'), fullPage: true });
     await page.getByRole('button', { name: '保存职业档案' }).click();
     await page.getByTestId('profile-project-tab').click();
-    await expect(page.locator('.project-card')).toHaveCount(3);
-    const importedProject = page.locator('.project-card', { hasText: 'E2E 算力平台' });
+    await expect(page.locator('.project-card')).toHaveCount(1);
+    await expect(page.locator('.project-pagination')).toContainText('/ 3');
+    for (let index = 0; index < 3; index += 1) {
+      if (await page.locator('.project-card').getByText('E2E 算力平台', { exact: true }).count()) break;
+      await page.getByTitle('下一个项目').click();
+    }
+    const importedProject = page.locator('.project-card');
+    await expect(importedProject).toContainText('E2E 算力平台');
     await importedProject.getByRole('button', { name: '编辑' }).click();
     await expect(page.getByTestId('project-name')).toHaveValue('E2E 算力平台');
     await page.getByTestId('project-results').fill('完成版本上线并通过接口验证。');
     await page.getByTestId('project-save').click();
     await expect(importedProject).toContainText('完成版本上线并通过接口验证');
-
-    await page.getByTestId('nav-knowledge').click();
-    const knowledgePath = path.join(dataDirectory, 'knowledge.md');
-    await writeFile(knowledgePath, '# E2E 专用知识卡\n这是通过文件导入的 Kubernetes 故障排查内容。', 'utf8');
-    await mockFileSelection(knowledgePath);
-    await page.getByTestId('knowledge-import-file').click();
-    await expect(page.getByTestId('knowledge-title')).toHaveValue('E2E 专用知识卡');
-    await expect(page.getByTestId('knowledge-content')).toHaveValue(/Kubernetes/);
-    await page.screenshot({ path: path.resolve('artifacts', 'knowledge-import.png'), fullPage: true });
-    await page.getByTestId('knowledge-save').click();
-    await expect(page.getByRole('button', { name: /E2E 专用知识卡/ })).toBeVisible();
 
     await page.getByTestId('nav-jobs').click();
     const jobPath = path.join(dataDirectory, 'job.txt');
@@ -154,7 +157,14 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     await page.evaluate(() => { window.location.hash = '#/profile'; });
     await expect(page.getByRole('heading', { name: '职业档案' })).toBeVisible();
     await page.getByTestId('profile-project-tab').click();
-    const calibratedProject = page.locator('.project-card').filter({ hasText: /AI/ }).first();
+    const previousProject = page.getByTitle('上一个项目');
+    while (!(await previousProject.isDisabled())) await previousProject.click();
+    for (let index = 0; index < 3; index += 1) {
+      if (await page.locator('.project-card').getByText('AI 漫剧算力平台', { exact: true }).count()) break;
+      await page.getByTitle('下一个项目').click();
+    }
+    const calibratedProject = page.locator('.project-card');
+    await expect(calibratedProject).toContainText('AI 漫剧算力平台');
     await expect(calibratedProject.locator('.project-calibration')).toHaveText(/\S{10,}/);
 
     await page.evaluate(() => { window.location.hash = '#/reports'; });
@@ -168,51 +178,27 @@ test('desktop MVP completes the offline interview workflow and persists data', a
 
     await page.getByTestId('nav-coach').click();
     await page.getByRole('button', { name: 'Back to practice setup' }).click();
-    await expect(page.locator('.coach-mode-grid button')).toHaveCount(6);
-    await expect(page.getByTestId('coach-mode-english-interview')).toBeVisible();
+    await expect(page.getByTestId('training-coach-mode').locator('option')).toHaveCount(6);
     const chineseCoachModes = ['mock-interview', 'project-deep-dive', 'technical-qa', 'resume-follow-up', 'jd-analysis'];
     for (const mode of chineseCoachModes) {
-      await page.getByTestId('coach-mode-english-interview').click();
+      await page.getByTestId('training-coach-mode').selectOption('english-interview');
       await expect(page.getByTestId('training-language')).toHaveValue('en-US');
       await expect(page.getByRole('heading', { name: 'AI Career Coach' })).toBeVisible();
-      await page.getByTestId(`coach-mode-${mode}`).click();
+      await page.getByTestId('training-coach-mode').selectOption(mode);
       await expect(page.getByTestId('training-language')).toHaveValue('zh-CN');
       await expect(page.getByRole('heading', { name: 'AI 职业教练' })).toBeVisible();
     }
     await page.screenshot({ path: path.resolve('artifacts', 'coach-v0.6.png'), fullPage: true });
 
     await page.getByTestId('nav-settings').click();
-    await expect(page.locator('.settings-card')).toHaveCount(5);
-    await mockFileSelection(dataDirectory);
-    await page.getByTestId('obsidian-create-vault').click();
-    await expect(page.getByTestId('obsidian-settings')).toContainText('Interview-OS-Vault');
-    await page.getByTestId('obsidian-preview').click();
-    await expect(page.getByTestId('obsidian-preview-list')).toBeVisible();
-    await page.getByTestId('obsidian-run-sync').click();
-    await expect(page.getByTestId('obsidian-feedback')).toContainText('同步完成');
-    await expect(page.getByTestId('obsidian-feedback')).toContainText('失败 0');
-    const persistedWorkspace = JSON.parse(await readFile(path.join(dataDirectory, 'database', 'state.json'), 'utf8')) as {
-      obsidianSyncIndex: Array<{ entityType: string; title: string; filePath: string }>;
-    };
-    const projectEntry = persistedWorkspace.obsidianSyncIndex.find((item) =>
-      item.entityType === 'project' && item.title === 'AI 漫剧算力平台'
-    );
-    expect(projectEntry).toBeTruthy();
-    const obsidianProjectPath = path.join(dataDirectory, 'Interview-OS-Vault', projectEntry!.filePath);
-    const obsidianProject = await readFile(obsidianProjectPath, 'utf8');
-    expect(obsidianProject).toContain('interview_os_id:');
-    expect(obsidianProject).toContain('<!-- interview-os:managed:start -->');
-    await page.screenshot({ path: path.resolve('artifacts', 'settings-v0.5-obsidian.png'), fullPage: true });
-
-    await page.getByTestId('nav-knowledge').click();
-    await page.getByTestId('knowledge-search').fill('Please introduce');
-    await expect(page.locator('.collection-list .collection-item')).toHaveCount(1);
-    await page.getByTestId('nav-settings').click();
-    page.once('dialog', (dialog) => void dialog.accept());
-    await page.getByTestId('obsidian-disconnect').click();
-    await expect(page.getByTestId('obsidian-settings')).toContainText('未启用');
-    await page.getByTestId('nav-knowledge').click();
-    await expect(page.getByRole('button', { name: /E2E 专用知识卡/ })).toBeVisible();
+    await expect(page.locator('.settings-card')).toHaveCount(6);
+    await page.getByRole('button', { name: '黑色', exact: true }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.getByTestId('settings-language').selectOption('en-US');
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+    await expect(page.getByTestId('nav-knowledge')).toHaveCount(0);
+    await expect(page.getByTestId('nav-data-center')).toHaveCount(0);
+    await expect(page.getByTestId('nav-projects')).toHaveCount(0);
 
     await app.close();
     appClosed = true;
@@ -232,8 +218,8 @@ test('desktop MVP completes the offline interview workflow and persists data', a
     });
     try {
       const restartedPage = await restarted.firstWindow();
-      await expect(restartedPage.getByTestId('stat-knowledge')).not.toHaveText('0');
       await expect(restartedPage.getByTestId('stat-jobs')).toHaveText('1');
+      await expect(restartedPage.locator('html')).toHaveAttribute('data-theme', 'dark');
     } finally {
       await restarted.close();
     }

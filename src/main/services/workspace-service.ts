@@ -446,6 +446,7 @@ export class WorkspaceService {
       if (valid.jobId && !job) throw new Error('未找到关联的 JD');
       const projectIds = valid.projectIds ?? [];
       const skillIds = valid.skillIds ?? [];
+      const skillNames = valid.skillNames ?? [];
       if (projectIds.some((id) => !draft.projects.some((item) => item.id === id))) throw new Error('简历包含不存在的项目经历');
       if (skillIds.some((id) => !draft.profile.skills.some((item) => item.id === id))) throw new Error('简历包含不存在的技能');
       const now = nowIso();
@@ -461,6 +462,7 @@ export class WorkspaceService {
         highlights: valid.highlights ?? [],
         projectIds,
         skillIds,
+        skillNames,
         targetKeywords: match.targetKeywords,
         matchScore: match.score,
         status: valid.status ?? 'draft',
@@ -650,6 +652,16 @@ export class WorkspaceService {
       if (existingIndex >= 0) draft.careerSearchPlans[existingIndex] = entity;
       else draft.careerSearchPlans.unshift(entity);
       return entity;
+    });
+  }
+
+  async deleteCareerSearchPlan(id: string): Promise<{ deleted: boolean }> {
+    return this.repository.update((draft) => {
+      const before = draft.careerSearchPlans.length;
+      draft.careerSearchPlans = draft.careerSearchPlans.filter((item) => item.id !== id);
+      if (draft.careerSearchPlans.length === before) return { deleted: false };
+      draft.careerAgentRuns = draft.careerAgentRuns.filter((item) => item.planId !== id);
+      return { deleted: true };
     });
   }
 

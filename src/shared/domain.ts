@@ -174,6 +174,7 @@ export interface ResumeVariant extends BaseEntity {
   highlights: string[];
   projectIds: EntityId[];
   skillIds: EntityId[];
+  skillNames: string[];
   targetKeywords: string[];
   matchScore: number;
   status: ResumeVariantStatus;
@@ -189,6 +190,7 @@ export interface ResumeVariantInput {
   highlights?: string[];
   projectIds?: EntityId[];
   skillIds?: EntityId[];
+  skillNames?: string[];
   status?: ResumeVariantStatus;
 }
 

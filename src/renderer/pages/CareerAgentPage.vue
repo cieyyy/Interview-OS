@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
-import { Bot, BrainCircuit, CheckCircle2, CircleAlert, FileUser, MessageCircleMore, MicVocal, Play, Search, Send, Sparkles } from '@lucide/vue';
+import { Bot, BrainCircuit, CheckCircle2, CircleAlert, FileUser, MessageCircleMore, MicVocal, Play, Search, Send, Sparkles, Trash2, X } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 import type { CareerMemoryType, SyncedJob } from '../../shared/domain';
 import { buildCareerAnswer, parseCareerGoal } from '../../shared/career-agent-engine';
@@ -8,11 +8,12 @@ import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
 
 const router = useRouter();
-const { store, saveCareerSearchPlan, runCareerSearchPlan, saveCareerMemory, promoteSyncedJob } = useWorkspace();
+const { store, saveCareerSearchPlan, deleteCareerSearchPlan, runCareerSearchPlan, saveCareerMemory, promoteSyncedJob } = useWorkspace();
 const goal = ref('帮我找杭州云原生、AI 平台或技术支持岗位，20K 以上，不要外包，双休优先。');
 const selectedPlanId = ref('');
 const question = ref('优先投哪个？');
 const answer = ref('');
+const deletePlanId = ref('');
 const mood = ref<'steady' | 'tired' | 'anxious'>('steady');
 const memoryDraft = reactive<{ type: CareerMemoryType; content: string; tags: string }>({ type: 'preference', content: '', tags: '' });
 
@@ -43,6 +44,15 @@ async function createAndRun(): Promise<void> {
 
 async function rerun(): Promise<void> {
   if (selectedPlan.value) await runCareerSearchPlan(selectedPlan.value.id);
+}
+
+async function removePlan(): Promise<void> {
+  if (!deletePlanId.value) return;
+  const id = deletePlanId.value;
+  const result = await deleteCareerSearchPlan(id);
+  if (!result?.deleted) return;
+  selectedPlanId.value = plans.value[0]?.id ?? '';
+  deletePlanId.value = '';
 }
 
 function askAgent(): void {
@@ -93,9 +103,12 @@ async function openJobAction(item: SyncedJob, target: 'resume' | 'training'): Pr
     <div class="agent-workspace">
       <aside class="agent-plan-list">
         <header><span>搜索计划</span><strong>{{ plans.length }}</strong></header>
-        <button v-for="plan in plans" :key="plan.id" type="button" :class="{ selected: selectedPlan?.id === plan.id }" @click="selectedPlanId = plan.id">
-          <Search :size="15" /><span><strong>{{ plan.title }}</strong><small>{{ plan.cities.join('、') || '不限城市' }} · {{ plan.keywords.slice(0, 2).join('、') || '综合岗位' }}</small></span>
-        </button>
+        <div v-for="plan in plans" :key="plan.id" class="agent-plan-row" :class="{ selected: selectedPlan?.id === plan.id }">
+          <button type="button" class="agent-plan-select" @click="selectedPlanId = plan.id">
+            <Search :size="15" /><span><strong>{{ plan.title }}</strong><small>{{ plan.cities.join('、') || '不限城市' }} · {{ plan.keywords.slice(0, 2).join('、') || '综合岗位' }}</small></span>
+          </button>
+          <button class="icon-command danger" type="button" title="删除计划" :aria-label="`删除计划 ${plan.title}`" @click="deletePlanId = plan.id"><Trash2 :size="15" /></button>
+        </div>
       </aside>
 
       <main class="agent-run-panel">
@@ -133,6 +146,13 @@ async function openJobAction(item: SyncedJob, target: 'resume' | 'training'): Pr
         <form @submit.prevent="addMemory"><select v-model="memoryDraft.type" class="input"><option value="preference">偏好</option><option value="profile">真实经历</option><option value="feedback">岗位反馈</option><option value="decision">求职决定</option><option value="note">备注</option></select><textarea v-model="memoryDraft.content" class="input" placeholder="记录以后需要持续使用的信息……"></textarea><input v-model="memoryDraft.tags" class="input" placeholder="标签，用逗号分隔" /><button class="button primary" type="submit">保存记忆</button></form>
         <div class="memory-list"><article v-for="item in memories" :key="item.id"><span>{{ item.type }}</span><p>{{ item.content }}</p><small>{{ item.tags.join(' · ') }}</small></article></div>
       </aside>
+    </div>
+    <div v-if="deletePlanId" class="modal-backdrop" role="presentation" @click.self="deletePlanId = ''">
+      <section class="modal-card compact-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-plan-title">
+        <header><div><span class="eyebrow">DELETE PLAN</span><h3 id="delete-plan-title">删除求职计划？</h3></div><button class="icon-command" type="button" title="关闭" @click="deletePlanId = ''"><X :size="16" /></button></header>
+        <p>计划及其运行记录会被删除，岗位、简历和投递记录不会受影响。</p>
+        <footer><button class="button ghost" type="button" @click="deletePlanId = ''">取消</button><button class="button danger" type="button" data-testid="career-plan-delete-submit" @click="removePlan"><Trash2 :size="15" />确认删除</button></footer>
+      </section>
     </div>
   </section>
 </template>

@@ -66,7 +66,7 @@ test('all child views preserve parent navigation and shared layout', async () =>
 
     await page.getByTestId('nav-coach').click();
     for (const mode of ['mock-interview', 'project-deep-dive', 'technical-qa', 'resume-follow-up', 'jd-analysis', 'english-interview']) {
-      await page.getByTestId(`coach-mode-${mode}`).click();
+      await page.getByTestId('training-coach-mode').selectOption(mode);
       await capture(`coach-${mode}`, 'coach');
     }
     for (const [route, name, parent] of [
@@ -82,7 +82,7 @@ test('all child views preserve parent navigation and shared layout', async () =>
     await page.getByTestId('profile-project-tab').click();
     await capture('projects-editor-tab', 'profile');
     await page.evaluate(() => { window.location.hash = '#/profile?tab=projects'; });
-    await capture('projects-deep-link', 'projects');
+    await capture('projects-deep-link', 'profile');
     await expect(page.locator('.project-form-card')).toHaveCSS('overflow-y', 'visible');
 
     await page.getByTestId('nav-resumes').click();
@@ -110,27 +110,9 @@ test('all child views preserve parent navigation and shared layout', async () =>
         expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe(extensionPath);
       }
     }
-    await page.evaluate(() => { window.location.hash = '#/job-insights'; });
-    await capture('job-insights', 'job-insights');
-
     await page.getByTestId('nav-jobs').click();
     await page.getByTestId('job-add').click();
     await capture('jd-import', 'jobs');
-
-    await page.getByTestId('nav-knowledge').click();
-    await page.getByTestId('knowledge-editor-tab').click();
-    await capture('knowledge-editor', 'knowledge');
-    await page.getByTestId('knowledge-graph-tab').click();
-    await capture('knowledge-graph', 'knowledge');
-
-    await page.getByTestId('nav-projects').click();
-    await capture('project-assets', 'projects');
-    await expect(page.locator('.project-asset-card')).toHaveCount(1);
-    const gridWidth = await page.locator('.project-asset-grid').evaluate((element) => element.getBoundingClientRect().width);
-    const cardWidth = await page.locator('.project-asset-card').evaluate((element) => element.getBoundingClientRect().width);
-    expect(cardWidth / gridWidth).toBeGreaterThan(0.95);
-    await page.getByRole('button', { name: '编辑项目' }).click();
-    await capture('project-assets-edit', 'projects');
 
     await page.getByTestId('nav-applications').click();
     await page.getByTestId('application-add').click();
@@ -147,17 +129,10 @@ test('all child views preserve parent navigation and shared layout', async () =>
     await page.getByTestId('company-add').click();
     await capture('companies-new', 'companies');
 
-    await page.getByTestId('nav-data-center').click();
-    for (const tab of ['quality', 'report', 'push']) {
-      await page.getByTestId(`data-center-tab-${tab}`).click();
-      await capture(`data-center-${tab}`, 'data-center');
-      if (tab === 'report') {
-        await page.getByTestId('data-copy-report').click();
-        await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toContain('# Interview OS 岗位数据报告');
-      }
-    }
-    const pushPadding = await page.locator('.push-rule-form').evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingLeft));
-    expect(pushPadding).toBe(20);
+    await page.getByTestId('nav-settings').click();
+    await page.getByRole('button', { name: '黑色', exact: true }).click();
+    await capture('settings-dark', 'settings');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   } finally {
     await app.close().catch(() => undefined);
     await rm(dataDirectory, { recursive: true, force: true });

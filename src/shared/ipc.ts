@@ -76,6 +76,7 @@ export const IPC = {
   deleteJobAlertRule: 'job-alert:delete',
   validateJobSource: 'job-source:validate',
   saveCareerSearchPlan: 'career-search-plan:save',
+  deleteCareerSearchPlan: 'career-search-plan:delete',
   runCareerSearchPlan: 'career-search-plan:run',
   saveCareerMemory: 'career-memory:save',
   saveCompanyWatch: 'company-watch:save',
@@ -135,6 +136,7 @@ export interface InterviewOSApi {
   deleteJobAlertRule(id: string): Promise<Result<{ deleted: boolean }>>;
   validateJobSource(id: string): Promise<Result<JobSyncRun>>;
   saveCareerSearchPlan(input: CareerSearchPlanInput): Promise<Result<CareerSearchPlan>>;
+  deleteCareerSearchPlan(id: string): Promise<Result<{ deleted: boolean }>>;
   runCareerSearchPlan(id: string): Promise<Result<CareerAgentRun>>;
   saveCareerMemory(input: CareerMemoryInput): Promise<Result<CareerMemoryItem>>;
   saveCompanyWatch(input: CompanyWatchInput): Promise<Result<CompanyWatch>>;

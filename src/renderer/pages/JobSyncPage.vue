@@ -10,10 +10,12 @@ import type { JobAlertRuleInput, JobFilterPreset, JobFilterPresetInput, JobIndus
 import { buildGreetingDraft, jobMatchesPreset } from '../../shared/job-intelligence';
 import PageHeader from '../components/PageHeader.vue';
 import { useWorkspace } from '../composables/useWorkspace';
+import { useUiPreferences } from '../composables/useUiPreferences';
 
 type WorkspaceTab = 'pool' | 'sources' | 'filters' | 'logs';
 
 const router = useRouter();
+const { preferences } = useUiPreferences();
 const {
   store, refreshJobSyncStatus, promoteSyncedJob, updateSyncedJobStatus, bulkUpdateSyncedJobStatus, saveApplication,
   saveJobSource, saveJobFilterPreset, deleteJobFilterPreset, saveJobAlertRule, deleteJobAlertRule, validateJobSource, copyText,
@@ -28,6 +30,11 @@ const statusFilter = ref<'active' | 'all' | 'ignored' | 'trashed'>('active');
 const preferredAddress = ref('');
 const nearestOnly = ref(false);
 const locationSort = ref<'default' | 'nearest'>('default');
+interface MapPoint { longitude: number; latitude: number }
+const preferredPoint = ref<MapPoint>();
+const jobPoints = ref<Record<string, MapPoint>>({});
+const mapMessage = ref('');
+const mapBusy = ref(false);
 const activePresetId = ref('');
 const selectedPresetId = ref('');
 const editingPresetId = ref('');
@@ -89,11 +96,51 @@ function addressPart(value: string, suffix: '市' | '区' | '县'): string {
   return match?.[1]?.replace(/^.*?(?:省|市)/u, '') ?? '';
 }
 
+function distanceKm(left: MapPoint, right: MapPoint): number {
+  const radius = 6371;
+  const toRadians = (value: number) => value * Math.PI / 180;
+  const latitudeDelta = toRadians(right.latitude - left.latitude);
+  const longitudeDelta = toRadians(right.longitude - left.longitude);
+  const a = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(toRadians(left.latitude)) * Math.cos(toRadians(right.latitude)) * Math.sin(longitudeDelta / 2) ** 2;
+  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function geocodeAddress(address: string): Promise<MapPoint | undefined> {
+  if (!preferences.mapApiKey || !address.trim()) return undefined;
+  const query = new URLSearchParams({ key: preferences.mapApiKey, address: address.trim() });
+  const response = await fetch(`https://restapi.amap.com/v3/geocode/geo?${query.toString()}`);
+  if (!response.ok) throw new Error(`地图接口请求失败：${response.status}`);
+  const payload = await response.json() as { status?: string; info?: string; geocodes?: Array<{ location?: string }> };
+  const location = payload.geocodes?.[0]?.location?.split(',').map(Number);
+  if (payload.status !== '1' || !location || location.length !== 2 || location.some((item) => !Number.isFinite(item))) {
+    throw new Error(payload.info || '未找到可用坐标');
+  }
+  return { longitude: location[0], latitude: location[1] };
+}
+
+async function geocodeVisibleJobs(): Promise<void> {
+  if (!preferences.mapApiKey) return;
+  const uniqueLocations = [...new Set(jobs.value.map((item) => item.location.trim()).filter(Boolean))].slice(0, 40);
+  for (const location of uniqueLocations) {
+    if (jobPoints.value[location]) continue;
+    try {
+      const point = await geocodeAddress(location);
+      if (point) jobPoints.value = { ...jobPoints.value, [location]: point };
+    } catch {
+      // Keep the text-based fallback for incomplete or unsupported job addresses.
+    }
+  }
+  window.localStorage.setItem('interview-os:job-map-points', JSON.stringify(jobPoints.value));
+}
+
 function locationAffinity(item: SyncedJob): number {
   const target = normalizeAddress(preferredAddress.value);
   const location = normalizeAddress(item.location);
   if (!target) return 0;
   if (item.remote) return 110;
+  const point = jobPoints.value[item.location.trim()];
+  if (preferredPoint.value && point) return Math.max(1, 100 - Math.min(99, distanceKm(preferredPoint.value, point)));
   if (!location) return 10;
   if ((target.includes(location) || location.includes(target)) && Math.min(target.length, location.length) >= 4) return 100;
   const targetDistrict = addressPart(preferredAddress.value, '区') || addressPart(preferredAddress.value, '县');
@@ -110,15 +157,41 @@ function locationAffinityLabel(item: SyncedJob): string {
   const score = locationAffinity(item);
   if (!preferredAddress.value) return '';
   if (score >= 110) return '远程岗位';
+  const point = jobPoints.value[item.location.trim()];
+  if (preferredPoint.value && point) return `${distanceKm(preferredPoint.value, point).toFixed(1)} km`;
   if (score >= 90) return '同区优先';
   if (score >= 70) return '同城';
   if (score === 10) return '地址待补全';
   return '异地';
 }
 
-function savePreferredAddress(): void {
+async function savePreferredAddress(): Promise<void> {
   preferredAddress.value = preferredAddress.value.trim();
   window.localStorage.setItem('interview-os:preferred-address', preferredAddress.value);
+  if (!preferredAddress.value) {
+    preferredPoint.value = undefined;
+    mapMessage.value = '';
+    return;
+  }
+  if (!preferences.mapApiKey) {
+    mapMessage.value = '请先在设置中配置高德地图 Web 服务 Key；当前继续使用同区/同城规则。';
+    return;
+  }
+  mapBusy.value = true;
+  mapMessage.value = '正在通过地图接口校准地址…';
+  try {
+    preferredPoint.value = await geocodeAddress(preferredAddress.value);
+    if (preferredPoint.value) {
+      window.localStorage.setItem('interview-os:preferred-point', JSON.stringify(preferredPoint.value));
+      await geocodeVisibleJobs();
+      mapMessage.value = '地址已校准，岗位距离已切换为地图坐标计算。';
+      locationSort.value = 'nearest';
+    }
+  } catch (error) {
+    mapMessage.value = error instanceof Error ? error.message : '地图地址校准失败';
+  } finally {
+    mapBusy.value = false;
+  }
 }
 
 const filtered = computed(() => {
@@ -455,6 +528,13 @@ async function removeAlert(id: string, name: string): Promise<void> {
 
 onMounted(() => {
   preferredAddress.value = window.localStorage.getItem('interview-os:preferred-address') ?? '';
+  try {
+    preferredPoint.value = JSON.parse(window.localStorage.getItem('interview-os:preferred-point') ?? 'null') ?? undefined;
+    jobPoints.value = JSON.parse(window.localStorage.getItem('interview-os:job-map-points') ?? '{}');
+  } catch {
+    preferredPoint.value = undefined;
+    jobPoints.value = {};
+  }
   void refreshJobSyncStatus();
   statusTimer = window.setInterval(() => { void refreshJobSyncStatus(); }, 5000);
 });
@@ -496,11 +576,11 @@ onBeforeUnmount(() => { if (statusTimer) window.clearInterval(statusTimer); });
       <div class="job-location-toolbar">
         <div class="location-address-editor">
           <label class="search-field location-address-field"><MapPin :size="16" /><input v-model="preferredAddress" aria-label="常用地址" placeholder="输入常用地址，例如：成都市武侯区天府三街" @change="savePreferredAddress" /></label>
-          <button class="button secondary compact" type="button" @click="savePreferredAddress">保存地址</button>
+          <button class="button secondary compact" type="button" :disabled="mapBusy" @click="savePreferredAddress">{{ mapBusy ? '校准中…' : '保存并校准' }}</button>
         </div>
         <select v-model="locationSort" class="input compact-select" aria-label="岗位距离排序"><option value="default">默认排序</option><option value="nearest" :disabled="!preferredAddress">离我最近</option></select>
         <label class="location-nearest-only"><input v-model="nearestOnly" type="checkbox" :disabled="!preferredAddress" />只看同区/同城</label>
-        <small>岗位未提供经纬度时，按远程、同区、同城、异地排序，不显示虚假公里数。</small>
+        <small>{{ mapMessage || (preferences.mapApiKey ? '已接入高德地图；无法解析的岗位地址继续按同区/同城回退。' : '未配置地图 Key，当前按远程、同区、同城、异地排序。') }}</small>
       </div>
 
       <div v-if="bulkMode && filtered.length" class="job-bulk-toolbar" data-testid="job-bulk-toolbar">

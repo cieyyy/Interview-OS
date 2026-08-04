@@ -20,3 +20,26 @@
   --color-info-soft: #e2f0ff;
   --color-focus-ring: rgba(8, 124, 240, 0.24);
 }
+
+html[data-theme="dark"] {
+  --color-primary: #4da3ff;
+  --color-primary-hover: #78b8ff;
+  --color-primary-soft: #17324d;
+  --color-background: #0b0d10;
+  --color-surface: rgba(24, 27, 32, 0.96);
+  --color-surface-solid: #181b20;
+  --color-surface-muted: #20242a;
+  --color-foreground: #f5f7fa;
+  --color-secondary: #aab3bf;
+  --color-border: rgba(255, 255, 255, 0.14);
+  --color-border-strong: rgba(255, 255, 255, 0.24);
+  --color-success: #55c59a;
+  --color-success-soft: #17372d;
+  --color-warning: #f1b765;
+  --color-warning-soft: #3e2d16;
+  --color-danger: #ff8178;
+  --color-danger-soft: #411d1d;
+  --color-info: #7ebcff;
+  --color-info-soft: #17324d;
+  --color-focus-ring: rgba(126, 188, 255, 0.36);
+}

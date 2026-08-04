@@ -223,6 +223,7 @@ export function validateResumeVariantInput(input: ResumeVariantInput): ResumeVar
     highlights: cleanStringList(input.highlights, '简历亮点', 20),
     projectIds: cleanEntityIds(input.projectIds),
     skillIds: cleanEntityIds(input.skillIds),
+    skillNames: cleanTags(input.skillNames),
     status: input.status ?? 'draft'
   };
 }
@@ -601,6 +602,9 @@ export function validateWorkspaceState(value: unknown): WorkspaceState {
     application.submissionMode ??= 'manual';
   }
   if (!Array.isArray(state.resumeVariants)) state.resumeVariants = [];
+  for (const resume of state.resumeVariants) {
+    resume.skillNames = Array.isArray(resume.skillNames) ? resume.skillNames : [];
+  }
   if (!Array.isArray(state.syncedJobs)) state.syncedJobs = [];
   for (const job of state.syncedJobs) {
     const intelligence = analyzeSyncedJob(job, state.profile);

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { ArrowRight, BookOpenCheck, BrainCircuit, BriefcaseBusiness, Building2, CalendarCheck, ChartNoAxesCombined, FileSearch, FileUser, GitBranch, Play, Sparkles, SquareKanban, Target, UserRound } from '@lucide/vue';
+import { ArrowRight, BookOpenCheck, BrainCircuit, BriefcaseBusiness, Building2, CalendarCheck, FileSearch, FileUser, GitBranch, Play, SquareKanban, UserRound } from '@lucide/vue';
 import { buildSkillGraph } from '../../shared/career-agent-engine';
 import EmptyState from '../components/EmptyState.vue';
 import PageHeader from '../components/PageHeader.vue';
@@ -12,7 +12,6 @@ const { store, resetDemo } = useWorkspace();
 const workspace = computed(() => store.workspace);
 const today = new Date().toISOString().slice(0, 10);
 const todayTraining = computed(() => workspace.value?.trainingSessions.filter((item) => item.updatedAt.startsWith(today)) ?? []);
-const pendingAnswers = computed(() => workspace.value?.knowledge.filter((item) => item.type === 'answer' && item.status === 'review') ?? []);
 const skillGaps = computed(() => workspace.value ? buildSkillGraph(workspace.value).filter((item) => item.category === 'gap').slice(0, 5) : []);
 const targetJobs = computed(() => (workspace.value?.syncedJobs ?? []).filter((item) => item.status === 'saved' && item.lifecycleStatus !== 'closed').sort((a, b) => b.matchScore - a.matchScore).slice(0, 4));
 const todayTasks = computed(() => {
@@ -20,10 +19,7 @@ const todayTasks = computed(() => {
   const applicationTasks = workspace.value.applications
     .filter((item) => item.nextAction && (!item.nextActionAt || item.nextActionAt.slice(0, 10) <= today))
     .map((item) => ({ id: `application-${item.id}`, title: item.nextAction, meta: `${item.company || '目标公司'} · ${item.title}`, to: '/applications' }));
-  const reviewTasks = workspace.value.knowledge
-    .filter((item) => item.reviewAt && item.reviewAt.slice(0, 10) <= today && item.status !== 'mastered')
-    .map((item) => ({ id: `knowledge-${item.id}`, title: `复习：${item.title}`, meta: item.tags.slice(0, 3).join(' · ') || '知识复习', to: '/knowledge' }));
-  return [...applicationTasks, ...reviewTasks].slice(0, 6);
+  return applicationTasks.slice(0, 6);
 });
 
 const loop = [
@@ -31,9 +27,8 @@ const loop = [
   { label: '分析岗位', to: '/jobs' },
   { label: '匹配能力', to: '/skill-graph' },
   { label: '修改简历', to: '/resumes' },
-  { label: '包装项目', to: '/projects' },
-  { label: '教练训练', to: '/coach' },
-  { label: '知识沉淀', to: '/knowledge' }
+  { label: '包装项目', to: '/profile?tab=projects' },
+  { label: '教练训练', to: '/coach' }
 ];
 </script>
 
@@ -61,7 +56,6 @@ const loop = [
 
         <div class="today-summary-grid">
           <button class="focus-card" type="button" @click="router.push('/coach')"><span><BrainCircuit :size="18" />今日训练</span><strong>{{ todayTraining.length }}</strong><small>统一职业教练会话</small></button>
-          <button class="focus-card" type="button" @click="router.push('/knowledge')"><span><Sparkles :size="18" />待优化回答</span><strong>{{ pendingAnswers.length }}</strong><small>复盘并沉淀为知识</small></button>
           <button class="focus-card" type="button" @click="router.push('/skill-graph')"><span><GitBranch :size="18" />待学习技能</span><strong>{{ skillGaps.length }}</strong><small>{{ skillGaps.map((item) => item.name).slice(0, 2).join(' · ') || '暂无明确缺口' }}</small></button>
           <button class="focus-card" type="button" @click="router.push('/applications')"><span><SquareKanban :size="18" />活跃机会</span><strong data-testid="stat-applications">{{ workspace.applications.filter((item) => !['offer', 'rejected', 'withdrawn'].includes(item.status)).length }}</strong><small>查看下一步和截止时间</small></button>
         </div>
@@ -85,13 +79,12 @@ const loop = [
       <div class="supporting-tools" aria-label="保留的辅助工作流">
         <button type="button" @click="router.push('/career-agent')"><BriefcaseBusiness :size="17" /><span><strong>求职 Agent</strong><small>搜索计划与推荐</small></span></button>
         <button type="button" @click="router.push('/profile')"><UserRound :size="17" /><span><strong>职业档案</strong><small>基础信息与技能</small></span></button>
-        <button type="button" @click="router.push('/job-insights')"><ChartNoAxesCombined :size="17" /><span><strong>岗位洞察</strong><small>趋势和分布</small></span></button>
         <button type="button" @click="router.push('/companies')"><Building2 :size="17" /><span><strong>公司关注</strong><small>官网与招聘时间线</small></span></button>
         <button type="button" @click="router.push('/resumes')"><FileUser :size="17" /><span><strong>简历工坊</strong><small>定向版本</small></span></button>
         <button type="button" @click="router.push('/jobs')"><FileSearch :size="17" /><span><strong>岗位分析</strong><small>要求与证据</small></span></button>
       </div>
 
-      <span class="sr-only" data-testid="stat-knowledge">{{ workspace.knowledge.length }}</span><span class="sr-only" data-testid="stat-projects">{{ workspace.projects.length }}</span><span class="sr-only" data-testid="stat-jobs">{{ workspace.jobs.length }}</span><span class="sr-only" data-testid="stat-resumes">{{ workspace.resumeVariants.length }}</span><span class="sr-only" data-testid="stat-synced-jobs">{{ workspace.syncedJobs.length }}</span>
+      <span class="sr-only" data-testid="stat-projects">{{ workspace.projects.length }}</span><span class="sr-only" data-testid="stat-jobs">{{ workspace.jobs.length }}</span><span class="sr-only" data-testid="stat-resumes">{{ workspace.resumeVariants.length }}</span><span class="sr-only" data-testid="stat-synced-jobs">{{ workspace.syncedJobs.length }}</span>
     </template>
   </section>
 </template>

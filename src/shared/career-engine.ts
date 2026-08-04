@@ -12,7 +12,7 @@ function relatedToRequirement(value: string, requirement: string): boolean {
 
 export function calculateResumeMatch(
   state: WorkspaceState,
-  input: Pick<ResumeVariantInput, 'jobId' | 'projectIds' | 'skillIds' | 'highlights'>
+  input: Pick<ResumeVariantInput, 'jobId' | 'projectIds' | 'skillIds' | 'skillNames' | 'highlights'>
 ): { score: number; targetKeywords: string[] } {
   const job = input.jobId ? state.jobs.find((item) => item.id === input.jobId) : undefined;
   if (!job) return { score: 0, targetKeywords: [] };
@@ -23,6 +23,7 @@ export function calculateResumeMatch(
   const evidenceText = [
     ...selectedProjects.flatMap((item) => [item.name, item.responsibilities, item.actions, item.results, ...item.techStack]),
     ...selectedSkills.map((item) => item.name),
+    ...(input.skillNames ?? []),
     ...(input.highlights ?? [])
   ].join(' ');
   const requirements = job.requirements.filter((item) => item.priority !== 'context');
@@ -32,7 +33,7 @@ export function calculateResumeMatch(
     || relatedToRequirement(evidenceText, requirement.label)
   );
   const requirementScore = requirements.length ? covered.length / requirements.length * 80 : 40;
-  const evidenceScore = Math.min(20, selectedProjects.length * 6 + selectedSkills.length * 2 + Math.min(6, (input.highlights ?? []).length * 2));
+  const evidenceScore = Math.min(20, selectedProjects.length * 6 + (selectedSkills.length + (input.skillNames ?? []).length) * 2 + Math.min(6, (input.highlights ?? []).length * 2));
   return {
     score: Math.min(100, Math.round(requirementScore + evidenceScore)),
     targetKeywords: job.requirements.map((item) => item.label).slice(0, 20)
@@ -69,6 +70,10 @@ export function buildResumeDraft(state: WorkspaceState, jobId?: string): ResumeV
   }
   const years = profile.yearsExperience > 0 ? `${profile.yearsExperience} 年` : '';
   const skillNames = profile.skills.filter((item) => skillIds.includes(item.id)).map((item) => item.name).slice(0, 6);
+  const generatedSkillNames = [...new Set([
+    ...selectedProjects.flatMap((item) => item.techStack),
+    ...requirementKeywords
+  ])].filter((item) => !skillNames.some((skill) => normalized(skill) === normalized(item))).slice(0, 10);
   const headlineKeywords = skillNames.length ? skillNames : requirementKeywords.slice(0, 6);
   const requirementText = requirementKeywords.length ? `，重点回应 ${requirementKeywords.slice(0, 5).join('、')} 等岗位要求` : '';
   return {
@@ -79,6 +84,7 @@ export function buildResumeDraft(state: WorkspaceState, jobId?: string): ResumeV
     highlights,
     projectIds,
     skillIds,
+    skillNames: generatedSkillNames,
     status: 'draft'
   };
 }
