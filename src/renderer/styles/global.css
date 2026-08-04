@@ -456,6 +456,10 @@ button.task-row:hover { color: var(--green-dark); background: #f4f8f7; }
 .button-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .path-result { margin: 11px 0 0; padding: 9px; color: #355a56; background: #edf6f4; border: 1px solid #d5e8e4; border-radius: 6px; overflow-wrap: anywhere; font-size: var(--font-xs); }
 .provider-test-hint { color: var(--muted); font-size: var(--font-xs); line-height: 1.6; }
+.provider-template { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-3); color: var(--color-foreground); background: var(--color-info-soft); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.provider-template > div { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.provider-template strong, .provider-template small { display: block; }
+.provider-template small { margin-top: var(--space-1); color: var(--color-secondary); font-size: var(--font-xs); }
 .check-list { margin: 0; padding: 0; list-style: none; }
 .check-list li { padding: 8px 0; color: #555c58; border-top: 1px solid #eef0ed; font-size: var(--font-xs); }
 .check-list li::before { content: "✓"; margin-right: 8px; color: var(--green); font-weight: 700; }
@@ -1706,6 +1710,66 @@ button.task-row:hover { color: #075ead; background: rgba(225, 240, 255, 0.58); }
 @supports not ((-webkit-backdrop-filter: blur(2px)) or (backdrop-filter: blur(2px))) {
   .sidebar, .topbar, .panel, .stat-card, .hero-card, .question-card, .report-hero, .assistant-card, .toast { background: #f8fbff; }
 }
+
+/* Final dark theme layer. Legacy page rules above still contain light glass surfaces. */
+html[data-theme="dark"] body,
+html[data-theme="dark"] .app-shell,
+html[data-theme="dark"] .main-shell,
+html[data-theme="dark"] .content-area { color: var(--color-foreground); background: #0b0d10; }
+html[data-theme="dark"] .sidebar { background: #0d1014; border-color: rgba(255,255,255,.1); }
+html[data-theme="dark"] .topbar { background: #111419; border-color: rgba(255,255,255,.1); }
+html[data-theme="dark"] .workspace-pill { color: #dbe5ef; }
+html[data-theme="dark"] .topbar-meta,
+html[data-theme="dark"] .brand span,
+html[data-theme="dark"] .sidebar-footer small { color: var(--color-secondary); }
+html[data-theme="dark"] .sidebar-footer { color: var(--color-foreground); background: #171b20; border-color: var(--color-border); box-shadow: none; }
+
+html[data-theme="dark"] :where(
+  .panel, .stat-card, .hero-card, .hero-score, .question-card, .report-hero, .assistant-card, .toast,
+  .empty-state, .workspace-layout, .jobs-layout, .project-card, .history-question, .history-attempt,
+  .answer-record, .feedback-copy, .coach-grid > div, .career-metrics, .application-card,
+  .dashboard-workflow-band, .resume-studio-layout, .resume-variant-list, .resume-workspace, .resume-sheet,
+  .calendar-group, .unscheduled-list > button, .sync-status-band, .synced-job-list, .job-workspace-tabs,
+  .intelligence-job-row.expanded, .job-bulk-toolbar, .job-compare-panel, .source-registry,
+  .filter-check-group, .sync-log-table, .job-detail-review, .agent-command-panel, .career-companion,
+  .agent-workspace, .agent-plan-list, .agent-plan-row, .agent-results, .agent-result-grid > article,
+  .agent-question-box, .career-memory-panel, .memory-list article, .company-watch-list,
+  .company-watch-row, .recruitment-calendar, .site-directory, .skill-graph-toolbar,
+  .capability-map, .capability-clusters, .capability-pagination, .learning-roadmap,
+  .cleanup-scope, .provider-template, .import-summary, .import-result, .recognition-explainer,
+  .info-box, .path-result, .markdown-preview, .knowledge-space-layout, .knowledge-links-panel section,
+  .knowledge-graph-board, .knowledge-graph-columns button, .knowledge-graph-columns span
+) { color: var(--color-foreground); background: #171a1f; border-color: var(--color-border); box-shadow: none; }
+
+html[data-theme="dark"] :where(
+  .collection-panel, .collection-item, .segmented, .theme-segmented, .detail-score-row span,
+  .detail-reasons > span, .job-detail-grid > aside, .calendar-event, .source-row,
+  .learning-roadmap article, .capability-clusters > section, .site-directory article a,
+  .site-directory article button, .knowledge-relations, .legacy-integration, .knowledge-edge-list > span
+) { color: var(--color-foreground); background: #1d2127; border-color: var(--color-border); }
+
+html[data-theme="dark"] :where(.collection-item:hover, .collection-item.selected, .recruitment-calendar > button:hover) { background: #242a31; }
+html[data-theme="dark"] :where(.input, input, textarea, select, .search-field) { color: var(--color-foreground); background: #101318; border-color: var(--color-border-strong); }
+html[data-theme="dark"] :where(.input:focus, input:focus, textarea:focus, select:focus) { background: #14181d; border-color: var(--color-primary); }
+html[data-theme="dark"] :where(.page-header h1, .panel h2, .panel h3, .empty-state h3, .career-metrics strong, .company-watch-row strong, .recruitment-calendar strong, .site-directory strong) { color: var(--color-foreground); }
+html[data-theme="dark"] :where(.page-description, .panel p, .empty-state p, .check-list li, .cleanup-scope, .company-watch-row small, .recruitment-calendar > p, .recruitment-calendar > button small, .site-directory article small) { color: var(--color-secondary); }
+html[data-theme="dark"] :where(.settings-card dl > div, .check-list li, .company-watch-row, .recruitment-calendar > button, .site-directory article, .career-metrics > div) { border-color: var(--color-border); }
+html[data-theme="dark"] .settings-icon { color: var(--color-primary); background: #182c40; border-color: #284b6c; }
+html[data-theme="dark"] .cleanup-confirm { color: var(--color-foreground); background: #251718; border-color: #75413b; }
+html[data-theme="dark"] .cleanup-confirm label,
+html[data-theme="dark"] .cleanup-warning strong { color: #ffd3cf; }
+html[data-theme="dark"] .cleanup-warning,
+html[data-theme="dark"] .cleanup-warning small { color: #ff9b92; }
+html[data-theme="dark"] .cleanup-backup { color: #ffb0a8; background: #251718; border-color: #75413b; }
+html[data-theme="dark"] .capability-clusters > section:nth-child(1) > header { background: #132a23; }
+html[data-theme="dark"] .capability-clusters > section:nth-child(2) > header { background: #14263a; }
+html[data-theme="dark"] .capability-clusters > section:nth-child(3) > header { background: #332717; }
+html[data-theme="dark"] .button.secondary,
+html[data-theme="dark"] .button.ghost,
+html[data-theme="dark"] .icon-command { color: #e2e8ef; background: #20252b; border-color: var(--color-border-strong); }
+html[data-theme="dark"] .button.secondary:hover,
+html[data-theme="dark"] .button.ghost:hover,
+html[data-theme="dark"] .icon-command:hover { background: #2a3038; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

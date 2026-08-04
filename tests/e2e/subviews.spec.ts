@@ -38,6 +38,18 @@ async function expectSharedLayout(page: Page, name: string): Promise<void> {
   expect(audit, `${name} shared layout audit`).toEqual({ invalidFontSizes: [], horizontalOverflow: false, edgeControlIssues: [] });
 }
 
+async function expectDarkSurfaces(page: Page, selectors: string[]): Promise<void> {
+  const surfaces = await page.evaluate((targets) => targets.flatMap((selector) => {
+    const element = document.querySelector<HTMLElement>(selector);
+    if (!element) return [];
+    const color = getComputedStyle(element).backgroundColor;
+    const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [];
+    return [{ selector, color, maximumChannel: channels.length === 3 ? Math.max(...channels) : 255 }];
+  }), selectors);
+  expect(surfaces).toHaveLength(selectors.length);
+  for (const surface of surfaces) expect(surface.maximumChannel, `${surface.selector} uses ${surface.color}`).toBeLessThan(64);
+}
+
 test('all child views preserve parent navigation and shared layout', async () => {
   const dataDirectory = await mkdtemp(path.join(os.tmpdir(), 'interview-os-subviews-'));
   const env = { ...process.env, INTERVIEW_OS_DATA_DIR: dataDirectory };
@@ -131,8 +143,18 @@ test('all child views preserve parent navigation and shared layout', async () =>
 
     await page.getByTestId('nav-settings').click();
     await page.getByRole('button', { name: '黑色', exact: true }).click();
+    await page.getByTestId('provider-apply-sub2api').click();
+    await expect(page.getByTestId('provider-kind')).toHaveValue('openai-compatible');
+    await expect(page.getByTestId('provider-name')).toHaveValue('Sub2API');
+    await expect(page.getByTestId('provider-base-url')).toHaveValue('https://your-sub2api.example.com/v1');
+    await expect(page.getByTestId('provider-model')).toHaveValue('gpt-5.4');
     await capture('settings-dark', 'settings');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expectDarkSurfaces(page, ['.content-area', '.settings-card', '.provider-template', '.cleanup-scope']);
+
+    await page.getByTestId('nav-companies').click();
+    await capture('companies-dark', 'companies');
+    await expectDarkSurfaces(page, ['.content-area', '.career-metrics', '.company-watch-list', '.recruitment-calendar', '.site-directory']);
   } finally {
     await app.close().catch(() => undefined);
     await rm(dataDirectory, { recursive: true, force: true });
